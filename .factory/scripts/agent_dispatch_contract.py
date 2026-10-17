@@ -45,6 +45,12 @@ class DispatchEnvelope:
 
 
 class Backend(Protocol):
+    """External gateway contract.
+
+    Implementations must durably deduplicate by envelope["idempotency_key"].
+    Repeated submissions with the same key return the original receipt and
+    must not create a second worker, branch, pull request, or status update.
+    """
     def submit(self, *, provider: str, envelope: dict) -> str: ...
 
 
@@ -84,13 +90,20 @@ def build_envelope(
 def dispatch(
     *, store: LeaseStore, issue: int, authenticated_login: str,
     role: str, approved_logins: set[str], now: datetime,
-    provider: str, transport: Backend, enabled: bool,
+    provider: str, configured_providers: set[str],
+    transport: Backend, enabled: bool,
 ) -> str:
     """Dispatch only via a trusted injected transport, never from Issue text."""
     if not enabled:
         raise DispatchDenied("Autonomous dispatch is not enabled by the owner")
-    if not re.fullmatch(r"[a-z][a-z0-9_-]{1,48}", provider):
-        raise DispatchDenied("Missing validated owner-configured provider name")
+    if (not re.fullmatch(r"[a-z][a-z0-9_-]{1,48}", provider)
+            or not isinstance(configured_providers, set)
+            or not configured_providers
+            or any(not isinstance(item, str)
+                   or not re.fullmatch(r"[a-z][a-z0-9_-]{1,48}", item)
+                   for item in configured_providers)
+            or provider not in configured_providers):
+        raise DispatchDenied("Provider is not in the owner-configured allowlist")
     lease = store.read(issue)
     if lease is None:
         raise DispatchDenied("No acquired durable lease")
