@@ -62,16 +62,37 @@ jobs:
     needs: [impact]
     if: fromJSON(needs.impact.outputs.manifest).selected_jobs.scanner
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: '3.12'
-      - run: |
-          python -m pip install -e .
-          python -m unittest discover -s tests -v
+      - run: python -m pip install -e . -r .factory/requirements-dev.txt
+      - name: Run scanner unit tests with measured coverage
+        run: |
+          mkdir -p reports
+          python -m coverage run --source=insurance -m unittest discover -s tests -v
+          python -m coverage json -o reports/coverage.json
+      - name: Enforce repository-owned 90-percent changed production line floor
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python .factory/scripts/diff_coverage.py --base "$BASE_SHA" --head "$HEAD_SHA" --coverage reports/coverage.json
+      - name: Assert invalid quote paths are NO TRADE
+        run: |
+          python .factory/scripts/scanner_safety_gate.py
           insurance --help
+      - name: Preserve measured scanner coverage and safety reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: scanner-diff-coverage
+          path: reports/coverage.json
+          if-no-files-found: warn
   factory:
     needs: [impact]
     if: fromJSON(needs.impact.outputs.manifest).selected_jobs.factory
