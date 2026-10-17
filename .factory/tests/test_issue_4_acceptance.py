@@ -70,7 +70,9 @@ class Issue4Acceptance(unittest.TestCase):
     def test_ac_4_failed_missing_skipped_stale_or_empty_gate_fails_closed(self):
         plan = impacted(["src/insurance/core.py"], SHA)
         statuses = {"impact": "success", "policy": "success",
-                    "issue_completion": "success"}
+                    "issue_completion": "success",
+                    "acceptance_macos": "success",
+                    "acceptance_windows": "success"}
         statuses.update({
             job: "success" if required else "skipped"
             for job, required in plan["selected_jobs"].items()
