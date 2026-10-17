@@ -1,0 +1,28 @@
+name: Factory bounded CI repair dispatch
+on:
+  workflow_run:
+    workflows: ["Factory selective CI"]
+    types: [completed]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: insurance-factory-repair-dispatch
+  cancel-in-progress: false
+jobs:
+  repair:
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Load trusted factory validation dependency
+        run: python3 -m pip install -r .factory/requirements-dev.txt
+      - name: Dispatch one lease-fenced CI repair by exact run and head
+        env:
+          FACTORY_REPAIR_ENABLED: ${{ vars.FACTORY_REPAIR_ENABLED || 'false' }}
+          FACTORY_REPAIR_APP_TOKEN: ${{ secrets.FACTORY_REPAIR_APP_TOKEN }}
+        run: python3 .factory/scripts/repair_dispatch.py

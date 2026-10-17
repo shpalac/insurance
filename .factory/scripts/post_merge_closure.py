@@ -25,6 +25,7 @@ from acceptance_discovery import DiscoveryError, available_criteria
 from run_acceptance_manifest import AcceptanceError, load_targets, run_criteria
 from cross_os_proof import CrossOSProofError, verified_hosted_rows
 from lease_canary_proof import HostedLeaseCanaryMissing, verify_live_lease_canary
+from repair_canary_proof import LiveRepairProofMissing, verify_live_repair_proof
 from validate_issue_manifest import extract_manifest, validate_body
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -264,6 +265,11 @@ def prepare(api: GitHub, sha: str, run_id: int, *, run=run_criteria):
                         if api.get("/issues/43").get("state") != "closed":
                             raise HostedLeaseCanaryMissing("Identity dependency #43 is open")
                         item["hosted_canary"] = verify_live_lease_canary(api, sha)
+                    if number == 46:
+                        for dependency in (43, 44, 45):
+                            if api.get(f"/issues/{dependency}").get("state") != "closed":
+                                raise LiveRepairProofMissing("Repair prerequisite Issue remains open")
+                        item["live_repair_canary"] = verify_live_repair_proof(api, sha)
                     audit = closure_progress(
                         criteria_ids=item["criteria"], evidence=evidence, main_sha=sha
                     )
@@ -272,7 +278,7 @@ def prepare(api: GitHub, sha: str, run_id: int, *, run=run_criteria):
                     item["status"] = "ready"
                     item["reason"] = "all_acceptance_green_on_main"
                     item["evidence"] = evidence
-            except (AcceptanceError, CrossOSProofError, HostedLeaseCanaryMissing, OSError, ValueError) as exc:
+            except (AcceptanceError, CrossOSProofError, HostedLeaseCanaryMissing, LiveRepairProofMissing, OSError, ValueError) as exc:
                     item["reason"] = "acceptance_incomplete_or_untrusted_target"
                     # Do not leak stdout, stderr, or issue-supplied strings into public comments.
                     print(f"Issue #{number}: acceptance blocked ({type(exc).__name__})")
@@ -393,6 +399,13 @@ def apply(api: GitHub, sha: str, plan: dict):
                 continue
             if item.get("hosted_canary") != verify_live_lease_canary(api, sha):
                 raise ReconcileError("Hosted canary proof differs from immutable main")
+        if number == 46:
+            if any(api.get(f"/issues/{dependency}").get("state") != "closed"
+                   for dependency in (43, 44, 45)):
+                blocked.append({"issue": number, "reason": "repair_dependencies_pending"})
+                continue
+            if item.get("live_repair_canary") != verify_live_repair_proof(api, sha):
+                raise ReconcileError("Unverified real hosted CI repair canary")
         decision = closure_progress(criteria_ids=criteria, evidence=evidence, main_sha=sha)
         if not decision["should_close"]:
             blocked.append({"issue": number, "reason": "incomplete_criteria"})
