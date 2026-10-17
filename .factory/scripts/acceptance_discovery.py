@@ -31,10 +31,12 @@ def named_path(root: Path, issue: int, criterion: str) -> Path:
         raise DiscoveryError("Invalid acceptance criterion identifier")
     base = root / ".factory" / "acceptance"
     path = base / f"issue_{issue}" / f"test_ac_{match.group(1)}.py"
-    # Resolve symlinks so a test cannot escape the repository or designated
-    # acceptance directory, including when an ancestor itself is a symlink.
-    if not path.resolve().is_relative_to(base.resolve()):
-        raise DiscoveryError("Acceptance test path escapes the trusted directory")
+    # Neither the acceptance root nor an Issue directory may be symlinked
+    # outside the checked-out repository. Broken symlinks fail closed too.
+    if (base.is_symlink() or (base / f"issue_{issue}").is_symlink()
+            or not base.resolve().is_relative_to(root.resolve())
+            or not path.resolve().is_relative_to(base.resolve())):
+        raise DiscoveryError("Acceptance test path escapes the trusted repository")
     return path
 
 
