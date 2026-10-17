@@ -4,7 +4,7 @@ Automatic closure is **enabled only when the post-merge verifier proves every AC
 
 ## Runtime
 
-`.github/workflows/factory-verified-closure.yml` runs when a successful push-to-main **Factory selective CI** workflow completes, hourly as a missed-event reconciler, or manually via `workflow_dispatch`. Jobs are serialized.
+`.github/workflows/factory-verified-closure.yml` runs when a successful push-to-main **Factory selective CI** workflow completes, hourly as a missed-event reconciler, or manually via `workflow_dispatch`. An Issue edit performed by the repository owner also requests prompt reconciliation; edits by other actors remain covered by the hourly fallback. Jobs are serialized.
 
 1. **verify:** read-only GitHub token, checks that `main` has successful `unit-tests`, `factory-bootstrap-gate`, and `factory-gate-preflight` check runs at the exact head SHA. Enumerates merged PRs explicitly containing `Refs #N`; their merge commits must be ancestors of `main`.
 2. Reads each linked open Issue's one valid `yaml factory-acceptance-manifest` block, then runs **all** registered acceptance targets from `.factory/acceptance-targets.json` in an unprivileged GitHub-hosted runner. Commands in Issue text are never executed.
