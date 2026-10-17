@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "insurance-scanner"
 version = "0.1.0"
-description = "Read-only research scanner for listed cash-settled index options"
+description = "Research-only index options mispricing scanner comparing option premiums with modeled expected payouts"
 requires-python = ">=3.11"
 dependencies = []
 
