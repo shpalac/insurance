@@ -21,7 +21,7 @@ import yaml
 
 from agent_dispatch_contract import DispatchDenied, dispatch
 from github_ref_leases import GitHubRefLeaseStore, StateError
-from lease_state import LeaseConflict, complete, acquire
+from lease_state import LeaseConflict, StaleLease, complete, acquire
 from orchestrator_loop import inspect_open, plan_next
 from repair_canary_proof import LiveRepairProofMissing, verify_live_repair_proof
 
@@ -164,7 +164,7 @@ def main() -> int:
                         store, entity=number, epoch=lease.epoch,
                         owner=lease.owner, now=now,
                     )
-                except (LeaseConflict, ValueError):
+                except (LeaseConflict, StaleLease, ValueError):
                     # Another trusted worker changed the revision; refresh below.
                     pass
         leases = store.read_all()
