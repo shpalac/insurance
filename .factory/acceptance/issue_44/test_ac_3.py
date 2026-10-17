@@ -23,7 +23,7 @@ class Acceptance(unittest.TestCase):
                     return {"tree":{"sha":"b"*40}}
                 if path.startswith("/contents/"):
                     encoded=base64.b64encode(b'{"version":1,"leases":{}}').decode()
-                    return {"encoding":"base64","content":encoded[:15]+"\\n"+encoded[15:]}
+                    return {"encoding":"base64","content":encoded[:15]+"\n"+encoded[15:]}
                 raise AssertionError(path)
         self.assertEqual(WrappedContents("shpalac/insurance","fake").read_all(),{})
         store=GitHubRefLeaseStore("shpalac/insurance","fake")
