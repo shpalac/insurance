@@ -41,7 +41,7 @@ def gate_errors(manifest: dict, head_sha: str, statuses: dict) -> list[str]:
             errors.append(f"Selection flag for {name} must be boolean")
         elif flag and statuses.get(name) != "success":
             errors.append(f"Selected {name} job did not succeed")
-    for baseline in ("impact", "policy"):
+    for baseline in ("impact", "policy", "issue_completion"):
         if statuses.get(baseline) != "success":
             errors.append(f"Mandatory {baseline} job did not succeed")
     return errors
@@ -57,7 +57,7 @@ def main(argv: list[str] | None = None) -> int:
         manifest = None
     statuses = {
         name: os.environ.get(f"RESULT_{name.upper()}", "").lower()
-        for name in (*JOBS, "impact", "policy")
+        for name in (*JOBS, "impact", "policy", "issue_completion")
     }
     errors = gate_errors(manifest, args.head, statuses)
     for issue in errors:
