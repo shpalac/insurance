@@ -71,8 +71,9 @@ def execute(*, root: Path, issue: int, criterion: str, report: Path) -> dict:
     path = named_path(root, issue, criterion)
     expected = validate_named_test(path, criterion)
     reports_dir = (root / "reports").resolve()
-    if not report.resolve().is_relative_to(reports_dir):
-        raise DiscoveryError("Report must stay within reports/")
+    if (not reports_dir.is_relative_to(root.resolve())
+            or not report.resolve().is_relative_to(reports_dir)):
+        raise DiscoveryError("Report must stay within trusted reports/")
     name = f"_factory_issue_{issue}_{criterion.replace('-', '_')}"
     spec = importlib.util.spec_from_file_location(name, path)
     if spec is None or spec.loader is None:
