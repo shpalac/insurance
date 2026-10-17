@@ -124,17 +124,20 @@ def preflight(
             }
             if partial:
                 try:
-                    partial_rows = run(
+                    linux_partial = {ac for ac in partial if
+                        next(row["runner_os"] for row in manifest["acceptance_criteria"]
+                             if row["id"] == ac) == "ubuntu-latest"}
+                    partial_rows = (run(
                         issue_body, issue_id=number, head_sha=head_sha,
-                        root=root, criteria_subset=partial,
-                    )
+                        root=root, criteria_subset=linux_partial,
+                    ) if linux_partial else [])
                 except (AcceptanceError, OSError) as exc:
                     raise CompletionError(
                         f"Issue #{number}: partial acceptance failed "
                         f"({type(exc).__name__})"
                     ) from exc
                 if ([row.get("id") for row in partial_rows]
-                        != [ac for ac in expected if ac in partial]
+                        != [ac for ac in expected if ac in linux_partial]
                         or any(
                             row.get("status") != "PASS"
                             or row.get("head_sha") != head_sha
@@ -154,18 +157,18 @@ def preflight(
 
         # When the registry becomes complete, there is no manual "finishing
         # PR" action. Every linked PR automatically proves all criteria.
-        if any(ac["runner_os"] != "ubuntu-latest"
-               for ac in manifest["acceptance_criteria"]):
-            raise CompletionError(
-                f"Issue #{number}: acceptance on other OS runners is not yet supported"
-            )
+        # Non-Linux ACs are enforced by mandatory hosted jobs and the aggregate
+        # gate, never by pretending Ubuntu has executed them.
+        linux = {ac["id"] for ac in manifest["acceptance_criteria"]
+                 if ac["runner_os"] == "ubuntu-latest"}
         try:
-            rows = run(issue_body, issue_id=number, head_sha=head_sha, root=root)
+            rows = (run(issue_body, issue_id=number, head_sha=head_sha,
+                        root=root, criteria_subset=linux) if linux else [])
         except (AcceptanceError, OSError) as exc:
             raise CompletionError(
                 f"Issue #{number}: trusted acceptance failed ({type(exc).__name__})"
             ) from exc
-        if [r.get("id") for r in rows] != expected:
+        if [r.get("id") for r in rows] != [ac for ac in expected if ac in linux]:
             raise CompletionError(f"Issue #{number}: incomplete criterion coverage")
         if any(
             row.get("status") != "PASS" or row.get("head_sha") != head_sha

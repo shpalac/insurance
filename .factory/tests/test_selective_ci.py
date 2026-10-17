@@ -19,6 +19,8 @@ class ImpactAndGateTests(unittest.TestCase):
             "impact": "success",
             "policy": "success",
             "issue_completion": "success",
+            "acceptance_macos": "success",
+            "acceptance_windows": "success",
             **{
                 name: "success" if selected else "skipped"
                 for name, selected in manifest["selected_jobs"].items()

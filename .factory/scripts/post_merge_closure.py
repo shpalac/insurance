@@ -23,6 +23,7 @@ from urllib import error, parse, request
 from integration_policy import closure_progress
 from acceptance_discovery import DiscoveryError, available_criteria
 from run_acceptance_manifest import AcceptanceError, load_targets, run_criteria
+from cross_os_proof import CrossOSProofError, verified_hosted_rows
 from validate_issue_manifest import extract_manifest, validate_body
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -45,6 +46,7 @@ class GitHub:
             raise ReconcileError("Missing repository or authentication")
         self.repo = repo
         self.token = token
+        self.base = "https://api.github.com/repos/" + repo
 
     def call(self, method: str, endpoint: str, data: dict | None = None):
         if not endpoint.startswith("/") or "://" in endpoint:
@@ -179,12 +181,22 @@ def prepare(api: GitHub, sha: str, run_id: int, *, run=run_criteria):
                 ]
             except (DiscoveryError, OSError, ValueError):
                 item["missing_criteria"] = list(item["criteria"])
-            if any(ac["runner_os"] != "ubuntu-latest"
-                   for ac in manifest["acceptance_criteria"]):
-                item["reason"] = "unsupported_runner_pending_hosted_verification"
-            else:
-                try:
-                    results = run(body, issue_id=number, head_sha=sha, root=ROOT)
+            try:
+                    linux = {ac["id"] for ac in manifest["acceptance_criteria"]
+                             if ac["runner_os"] == "ubuntu-latest"}
+                    results = (run(body, issue_id=number, head_sha=sha,
+                                   root=ROOT, criteria_subset=linux) if linux else [])
+                    required_os = {}
+                    for criterion in manifest["acceptance_criteria"]:
+                        if criterion["runner_os"] != "ubuntu-latest":
+                            required_os.setdefault(criterion["runner_os"], []).append(
+                                (number, criterion["id"]))
+                    if required_os:
+                        hosted = verified_hosted_rows(api, sha, required_os)
+                        results.extend(hosted[(number, ac)]
+                                       for os_name, names in required_os.items()
+                                       for _, ac in names)
+                    results.sort(key=lambda row: int(row["id"].split("-")[1]))
                     if [r["id"] for r in results] != item["criteria"]:
                         raise AcceptanceError("Acceptance coverage is incomplete")
                     for row in results:
@@ -211,7 +223,7 @@ def prepare(api: GitHub, sha: str, run_id: int, *, run=run_criteria):
                     item["status"] = "ready"
                     item["reason"] = "all_acceptance_green_on_main"
                     item["evidence"] = evidence
-                except (AcceptanceError, OSError, ValueError) as exc:
+            except (AcceptanceError, CrossOSProofError, OSError, ValueError) as exc:
                     item["reason"] = "acceptance_incomplete_or_untrusted_target"
                     # Do not leak stdout, stderr, or issue-supplied strings into public comments.
                     print(f"Issue #{number}: acceptance blocked ({type(exc).__name__})")
