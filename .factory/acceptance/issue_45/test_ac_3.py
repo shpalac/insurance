@@ -14,7 +14,7 @@ def emit():
     path = ROOT / "reports" / "ac-3.xml"
     path.parent.mkdir(parents=True, exist_ok=True)
     suite = ET.Element("testsuite", tests="1", failures="0", errors="0",
-                       skipped="0", assertions="18")
+                       skipped="0", assertions="21")
     ET.SubElement(suite, "testcase", classname="Issue45AC3",
                   name="test_ac_3_queue_prioritizes_failures_and_advances")
     ET.ElementTree(suite).write(path, encoding="utf-8", xml_declaration=True)
@@ -70,6 +70,13 @@ class Acceptance(unittest.TestCase):
         self.assertNotIn("\npull_request:", dispatch_workflow)
         self.assertIn("schedule:", diagnostics_workflow)
         self.assertIn("issues:", diagnostics_workflow)
+        dispatcher = (ROOT / ".factory/scripts/agent_dispatch.py").read_text()
+        self.assertIn('FACTORY_AGENT_DISPATCH_ENABLED', dispatcher)
+        self.assertIn("verify_live_repair_proof(GitHubReadAPI(store), main_sha)", dispatcher)
+        self.assertLess(
+            dispatcher.index("verify_live_repair_proof(GitHubReadAPI(store), main_sha)"),
+            dispatcher.index("receipt = dispatch("),
+        )
         emit()
 
 if __name__ == "__main__":
