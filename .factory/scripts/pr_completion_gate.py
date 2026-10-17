@@ -26,9 +26,31 @@ SHA = re.compile(r"^[0-9a-f]{40}$")
 REF = re.compile(r"(?im)^\s*Refs\s+#([1-9][0-9]*)\s*$")
 COMPLETES = re.compile(r"(?im)^\s*Completes\s+#([1-9][0-9]*)\s*$")
 NATIVE_CLOSE = re.compile(
-    r"(?im)^\s*(?:Close[sd]?|Fix(?:e[sd])?|Resolve[sd]?)\s+#([1-9][0-9]*)\b"
+    r"(?im)\b(?:Close[sd]?|Fix(?:e[sd])?|Resolve[sd]?)\s+#([1-9][0-9]*)\b"
 )
 MAX_COMPLETES = 10
+
+MAINTENANCE_PATHS = frozenset(("README.md", "CONTRIBUTING.md", "LICENSE"))
+
+
+def trusted_maintenance(meta: dict | None, head_sha: str) -> bool:
+    """A separate token-scoped GitHub API step attests a SHA-bound owner approval.
+
+    A candidate PR body, author/actor field or label alone never grants this.
+    """
+    if not isinstance(meta, dict) or meta.get("head_sha") != head_sha:
+        return False
+    reason = meta.get("reason")
+    files = meta.get("changed_paths")
+    return (
+        meta.get("owner_authorized") is True
+        and isinstance(reason, str) and 12 <= len(reason) <= 300
+        and isinstance(files, list) and 0 < len(files) < 100
+        and all(isinstance(p, str) and
+                (p in MAINTENANCE_PATHS or p.startswith("docs/"))
+                and ".." not in p.split("/") for p in files)
+    )
+
 
 
 class CompletionError(ValueError):
@@ -139,15 +161,17 @@ def main() -> int:
         body = pr.get("body") or ""
         head = pr["head"]["sha"]
         refs, completes = parse_intent(body)
-        if not refs:
-            print("No linked Issue declarations; no completion promise")
-            return 0
         source = os.getenv("COMPLETION_ISSUES_PATH", "")
         if not source:
             raise CompletionError("Missing trusted Issue payload file")
         issues = json.loads(Path(source).read_text(encoding="utf-8"))
         if not isinstance(issues, dict):
             raise CompletionError("Malformed Issue payload")
+        if not refs:
+            if not trusted_maintenance(issues.get("_maintenance"), head):
+                raise CompletionError("PR requires Refs #N or SHA-bound owner-approved docs-only maintenance")
+            print("PASS: owner-approved docs-only maintenance exemption")
+            return 0
         reports = preflight(
             body, head_sha=head, root=ROOT,
             fetch_issue=lambda n: supplied_issue(issues, n),
