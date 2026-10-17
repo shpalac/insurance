@@ -27,6 +27,8 @@ class Acceptance(unittest.TestCase):
              "is_pr": False},
             {"number": 82, "kind": "failing-pr", "linked_issue": 46,
              "is_pr": True},
+            {"number": 46, "kind": "triage-issue", "linked_issue": 46,
+             "is_pr": False},
             {"number": 99, "kind": "triage-issue", "linked_issue": 99,
              "is_pr": False},
         ]
