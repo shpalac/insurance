@@ -2,6 +2,20 @@
 
 Public, **read-only** quantitative research scanner focused on SPXW/XSP index options. This is a working initial engine for normalized option quote snapshots, **not** a validated profitable system or automated trading bot.
 
+## Autonomous software factory
+
+This public repository uses role-assigned, provider-agnostic LLM agents to develop and validate the research scanner. Read [AGENTS.md](AGENTS.md) and the canonical [.factory/config.yaml](.factory/config.yaml), then follow [agent assignment](docs/factory/agent-assignment.md) and the [rollout plan](docs/factory/rollout.md).
+
+**Current factory status:** foundational contracts, configuration checks and read-only CI only. Autonomous worker dispatch, trusted issue-acceptance execution, independent AI review, automatic merging and audited issue closure remain disabled. Never commit customer records, account information, PII or secrets; see [SECURITY.md](SECURITY.md).
+
+Run factory bootstrap validation:
+
+~~~sh
+python3 -m pip install -r .factory/requirements-dev.txt
+python3 .factory/scripts/validate_config.py
+python3 -m unittest discover -s .factory/tests -v
+~~~
+
 ## Implemented
 
 - Deterministic Python 3.11+ scanner; separate **SELL** and **BUY** insurance research rankings.

@@ -4,6 +4,11 @@ __pycache__/
 .venv/
 *.egg-info/
 .env
+.env.*
+!.env.example
+reports/
+.factory/reports/
+.factory/telemetry/*.jsonl
 *.db
 *.db-*
 data/private/
