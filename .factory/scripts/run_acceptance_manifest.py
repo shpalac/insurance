@@ -82,6 +82,7 @@ def run_criteria(
     issue_body: str, *, issue_id: int, head_sha: str,
     root: Path = ROOT, targets: dict | None = None,
     criteria_subset: set[str] | None = None,
+    runner_os: str = "ubuntu-latest",
 ) -> list[dict]:
     """Execute only trusted registry argv for explicitly linked criteria."""
     if not SHA.fullmatch(head_sha):
@@ -91,6 +92,8 @@ def run_criteria(
         raise AcceptanceError("; ".join(errors))
     manifest = extract_manifest(issue_body)
     targets = load_targets(root) if targets is None else targets
+    if runner_os not in {"ubuntu-latest", "macos-latest", "windows-latest"}:
+        raise AcceptanceError("Unsupported hosted OS")
     selected = manifest["acceptance_criteria"]
     all_ids = {ac["id"] for ac in selected}
     if criteria_subset is not None:
@@ -115,6 +118,8 @@ def run_criteria(
     results = []
     executed: set[tuple[str, ...]] = set()
     for criterion in selected:
+        if criterion["runner_os"] != runner_os:
+            raise AcceptanceError("Criterion is assigned to a different hosted OS")
         name = f"{issue_id}/{criterion['id']}"
         source = available.get(criterion["id"])
         if source is None:
@@ -140,7 +145,7 @@ def run_criteria(
         else:
             # No arbitrary command comes from Issue text, and new Issues
             # require no hand-edited registry.
-            if criterion["runner_os"] != "ubuntu-latest":
+            if criterion["runner_os"] != runner_os:
                 raise AcceptanceError(f"{name}: requires runner-specific hosted proof")
             command = (
                 sys.executable,

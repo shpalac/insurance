@@ -23,6 +23,7 @@ from urllib import error, parse, request
 from integration_policy import closure_progress
 from acceptance_discovery import DiscoveryError, available_criteria
 from run_acceptance_manifest import AcceptanceError, load_targets, run_criteria
+from cross_os_proof import CrossOSProofError, verified_hosted_rows
 from validate_issue_manifest import extract_manifest, validate_body
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -31,8 +32,9 @@ REPO = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 REQUIRED_JOBS = ("unit-tests", "factory-bootstrap-gate", "factory-gate-preflight")
 STATUS_MARKER = "<!-- FACTORY_CLOSURE_STATUS_V1 -->"
 AUDIT_PREFIX = "<!-- FACTORY_CLOSURE_AUDIT_V1 "
-MAX_ISSUES = 100
-MAX_PRS = 1000
+MAX_ISSUES = 25  # bounded amount of mutation/proof per reconciliation run
+MAX_ISSUES_FETCH = 10000  # explicit fail-closed discovery ceiling
+MAX_PRS = 15000  # grows beyond the original 1000-PR history ceiling
 
 
 class ReconcileError(RuntimeError):
@@ -45,6 +47,7 @@ class GitHub:
             raise ReconcileError("Missing repository or authentication")
         self.repo = repo
         self.token = token
+        self.base = "https://api.github.com/repos/" + repo
 
     def call(self, method: str, endpoint: str, data: dict | None = None):
         if not endpoint.startswith("/") or "://" in endpoint:
@@ -87,6 +90,47 @@ class GitHub:
             if len(batch) < 100:
                 return found
         raise ReconcileError("Incomplete pagination")
+
+
+def reconciliation_window(issues: list[dict], run_id: int,
+                          batch_size: int = MAX_ISSUES) -> list[dict]:
+    """Bound each run, rotate deterministically, never silently drop backlog."""
+    if not isinstance(issues, list) or not isinstance(run_id, int) or run_id < 0:
+        raise ReconcileError("Invalid issue cursor inputs")
+    if batch_size < 1 or batch_size > MAX_ISSUES:
+        raise ReconcileError("Invalid bounded reconciliation batch")
+    ordered = sorted((x for x in issues if "pull_request" not in x),
+                     key=lambda x: x.get("number", 0))
+    pages = max(1, (len(ordered) + batch_size - 1) // batch_size)
+    chosen = run_id % pages
+    return ordered[chosen * batch_size:(chosen + 1) * batch_size]
+
+
+def durable_report_fields(row: dict, root: Path = ROOT) -> dict:
+    """Pin tested report bytes in a permanent audit, not only a 30-day URL."""
+    path = row.get("artifact")
+    if isinstance(row.get("report_sha256"), str):
+        h = row["report_sha256"]
+        if not re.fullmatch(r"[0-9a-f]{64}", h):
+            raise ReconcileError("Malformed hosted report digest")
+        report = row.get("report", path)
+    else:
+        if not isinstance(path, str) or not path.startswith("reports/"):
+            raise ReconcileError("Missing JUnit evidence path")
+        file = (root / path).resolve()
+        if not file.is_relative_to(root.resolve()) or not file.is_file():
+            raise ReconcileError("Missing current-run acceptance report")
+        h = hashlib.sha256(file.read_bytes()).hexdigest()
+        report = path
+    if (not isinstance(report, str) or not report.startswith("reports/")
+            or type(row.get("assertions")) is not int or row["assertions"] < 1
+            or type(row.get("testcases")) is not int or row["testcases"] < 1
+            or row.get("runner", "ubuntu-latest") not in
+            {"ubuntu-latest", "macos-latest", "windows-latest"}):
+        raise ReconcileError("Incomplete durable JUnit identity")
+    return {"report": report, "report_sha256": h,
+            "runner": row.get("runner", "ubuntu-latest"),
+            "testcases": row["testcases"], "assertions": row["assertions"]}
 
 
 def current_main(api: GitHub) -> str:
@@ -145,12 +189,12 @@ def digest(content: str) -> str:
 
 def prepare(api: GitHub, sha: str, run_id: int, *, run=run_criteria):
     require_main_checks(api, sha)
-    issues = [
-        issue for issue in api.pages("/issues?state=open", limit=MAX_ISSUES)
-        if "pull_request" not in issue
-    ]
+    all_issues = api.pages("/issues?state=open", limit=MAX_ISSUES_FETCH)
+    issues = reconciliation_window(all_issues, run_id)
     prs = api.pages("/pulls?state=closed&base=main", limit=MAX_PRS)
-    plan = {"schema_version": 1, "main_sha": sha, "run_id": run_id, "items": []}
+    plan = {"schema_version": 1, "main_sha": sha, "run_id": run_id,
+            "scanned_count": len(all_issues), "batch_size": MAX_ISSUES,
+            "items": []}
     for issue in issues:
         number = issue.get("number")
         if type(number) is not int:
@@ -179,12 +223,22 @@ def prepare(api: GitHub, sha: str, run_id: int, *, run=run_criteria):
                 ]
             except (DiscoveryError, OSError, ValueError):
                 item["missing_criteria"] = list(item["criteria"])
-            if any(ac["runner_os"] != "ubuntu-latest"
-                   for ac in manifest["acceptance_criteria"]):
-                item["reason"] = "unsupported_runner_pending_hosted_verification"
-            else:
-                try:
-                    results = run(body, issue_id=number, head_sha=sha, root=ROOT)
+            try:
+                    linux = {ac["id"] for ac in manifest["acceptance_criteria"]
+                             if ac["runner_os"] == "ubuntu-latest"}
+                    results = (run(body, issue_id=number, head_sha=sha,
+                                   root=ROOT, criteria_subset=linux) if linux else [])
+                    required_os = {}
+                    for criterion in manifest["acceptance_criteria"]:
+                        if criterion["runner_os"] != "ubuntu-latest":
+                            required_os.setdefault(criterion["runner_os"], []).append(
+                                (number, criterion["id"]))
+                    if required_os:
+                        hosted = verified_hosted_rows(api, sha, required_os)
+                        results.extend(hosted[(number, ac)]
+                                       for os_name, names in required_os.items()
+                                       for _, ac in names)
+                    results.sort(key=lambda row: int(row["id"].split("-")[1]))
                     if [r["id"] for r in results] != item["criteria"]:
                         raise AcceptanceError("Acceptance coverage is incomplete")
                     for row in results:
@@ -203,6 +257,8 @@ def prepare(api: GitHub, sha: str, run_id: int, *, run=run_criteria):
                         "artifact_url": f"https://github.com/{api.repo}/actions/runs/{run_id}",
                         "merge_sha": latest["merge_sha"], "pr_number": latest["number"],
                     } for row in results]
+                    for row, proof in zip(results, evidence):
+                        proof.update(durable_report_fields(row))
                     audit = closure_progress(
                         criteria_ids=item["criteria"], evidence=evidence, main_sha=sha
                     )
@@ -211,7 +267,7 @@ def prepare(api: GitHub, sha: str, run_id: int, *, run=run_criteria):
                     item["status"] = "ready"
                     item["reason"] = "all_acceptance_green_on_main"
                     item["evidence"] = evidence
-                except (AcceptanceError, OSError, ValueError) as exc:
+            except (AcceptanceError, CrossOSProofError, OSError, ValueError) as exc:
                     item["reason"] = "acceptance_incomplete_or_untrusted_target"
                     # Do not leak stdout, stderr, or issue-supplied strings into public comments.
                     print(f"Issue #{number}: acceptance blocked ({type(exc).__name__})")
@@ -317,6 +373,15 @@ def apply(api: GitHub, sha: str, plan: dict):
                     f"https://github.com/{api.repo}/actions/runs/{plan['run_id']}"
                     for e in evidence)):
             raise ReconcileError("Invalid linked acceptance evidence")
+        for proof in evidence:
+            if (not re.fullmatch(r"[a-f0-9]{64}", proof.get("report_sha256") or "")
+                    or not isinstance(proof.get("report"), str)
+                    or not proof["report"].startswith("reports/")
+                    or proof.get("runner") not in
+                    {"ubuntu-latest", "macos-latest", "windows-latest"}
+                    or type(proof.get("testcases")) is not int
+                    or proof["testcases"] < 1):
+                raise ReconcileError("Durable acceptance proof is incomplete")
         decision = closure_progress(criteria_ids=criteria, evidence=evidence, main_sha=sha)
         if not decision["should_close"]:
             blocked.append({"issue": number, "reason": "incomplete_criteria"})
@@ -326,6 +391,18 @@ def apply(api: GitHub, sha: str, plan: dict):
         marker = audit_marker(number, sha)
         comment = next((c for c in comments if marker in c.get("body", "")), None)
         if not comment:
+            decision["durable_reports"] = [{
+                "criterion": proof["id"], "runner": proof["runner"],
+                "testcases": proof["testcases"],
+                "assertions": proof["assertions"],
+                "report_path": proof["report"],
+                "sha256": proof["report_sha256"],
+            } for proof in evidence]
+            decision["report_retention"] = {
+                "hosted_artifacts_days": 30,
+                "permanent_reference": sha,
+                "explanation": "Hosted downloads expire; this audit retains the tested SHA and report digests.",
+            }
             audit = json.dumps(decision, sort_keys=True, indent=2)
             api.post(f"/issues/{number}/comments", {
                 "body": marker + "\nVerified automatic closure audit:\n\n"

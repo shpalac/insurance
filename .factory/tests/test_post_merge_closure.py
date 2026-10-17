@@ -4,6 +4,7 @@ import copy
 from pathlib import Path
 import sys
 import unittest
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / ".factory/scripts"))
@@ -49,6 +50,8 @@ class FakeGitHub:
             if not self.good_checks:
                 checks[-1]["conclusion"] = "failure"
             return {"total_count": len(checks), "check_runs": checks}
+        if endpoint.startswith("/actions/runs?"):
+            return {"workflow_runs": []}
         if endpoint.startswith("/compare/"):
             return {
                 "status": "diverged" if self.fail_ancestry else "ahead",
@@ -97,15 +100,27 @@ class FakeGitHub:
         raise AssertionError("Unexpected PATCH: " + endpoint)
 
 
-def passing_run(body, *, issue_id, head_sha, root):
+def passing_run(body, *, issue_id, head_sha, root, criteria_subset=None):
     assert issue_id == 142 and head_sha == SHA
     assert "factory-acceptance-manifest" in body
-    return [
+    rows = [
         {"id": "AC-1", "status": "PASS", "assertions": 3,
          "testcases": 2, "head_sha": SHA},
         {"id": "AC-2", "status": "PASS", "assertions": 1,
          "testcases": 1, "head_sha": SHA},
     ]
+    for row in rows:
+        name = row["id"].lower().replace("-", "_")
+        relative = f"reports/fixture_issue_142_{name}.xml"
+        path = ROOT / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        root_xml = ET.Element("testsuite", assertions=str(row["assertions"]))
+        for index in range(row["testcases"]):
+            ET.SubElement(root_xml, "testcase", name=f"{name}_{index}")
+        ET.ElementTree(root_xml).write(path, encoding="utf-8")
+        row["artifact"] = relative
+        row["runner"] = "ubuntu-latest"
+    return [r for r in rows if criteria_subset is None or r["id"] in criteria_subset]
 
 
 class ClosureTests(unittest.TestCase):
@@ -194,13 +209,13 @@ class ClosureTests(unittest.TestCase):
         plan = prepare(self.api, SHA, 9, run=empty)
         self.assertEqual(plan["items"][0]["status"], "blocked")
 
-    def test_unsupported_runner_stays_open(self):
+    def test_missing_hosted_runner_proof_stays_open(self):
         self.api.issues[142]["body"] = BODY.replace(
             "runner_os: ubuntu-latest", "runner_os: macos-latest", 1
         )
         plan = prepare(self.api, SHA, 9, run=passing_run)
         self.assertEqual(plan["items"][0]["reason"],
-                         "unsupported_runner_pending_hosted_verification")
+                         "acceptance_incomplete_or_untrusted_target")
         self.assertEqual(apply(self.api, SHA, plan)["closed"], [])
 
     def test_tampered_evidence_does_not_close(self):

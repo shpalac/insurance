@@ -14,13 +14,19 @@ Automatic closure is **enabled only when the post-merge verifier proves every AC
 
 ## Proof and limitations
 
-Review approval is **not required**. A passing current-head CI gate and complete acceptance proof are required. The proof is linked to the GitHub Actions run with uploaded JUnit artifacts (30-day retention); the closure audit comment records the main SHA, merged PR numbers/SHAs and criterion results indefinitely.
+Review approval is **not required**. A passing current-head CI gate and complete acceptance proof are required. The proof links to hosted JUnit artifacts (30-day retention) and records permanent report hashes, exact main SHA, runner, test counts and merged PR numbers/SHAs in the audit. An expired download link must never be described as a retrievable artifact.
 
-**Initial implementation supports `ubuntu-latest` acceptance only.** macOS and Windows acceptance are never misrepresented as verified on Linux; they remain open until separate trusted hosted-runner evidence exists.
+Cross-platform acceptance is provided by the mandatory `acceptance-macos` and `acceptance-windows` hosted jobs. On `main`, the verifier requires same-commit successful CI and confirms criterion-specific JUnit assertions and archive SHA256 digests, rather than assuming a Linux run proves other OS behavior.
 
 Current older factory Issues #2–#8 were authored before executable acceptance manifests and do not automatically qualify for closure even when their initial scaffolding PRs merge. They must be migrated to valid manifests with registered targets and validated on `main`, or remain open.
 
 The workflow does **not** run a persistent LLM daemon, create tests automatically, grant missing GitHub permissions, or authorize live trading. In a public repository, never put secrets, accounts, PII, or broker data into Issue bodies or logs.
+
+## Bounded backlog and durable audit
+
+Each reconciliation discovers open Issues through safe complete pagination (10,000-Issue cap) and merged PRs through safe pagination (15,000-PR cap); reaching either ceiling **fails closed** instead of silently truncating the evidence set. The workflow deterministically processes one batch of up to 25 open Issues selected using the run ID modulo the number of batches. Scheduled or dispatched later runs visit other batches; no Issue may be closed until its own current-main evidence was verified. Cursor selection is recomputed when the backlog changes. Large-repository operators can explicitly dispatch extra reconcile runs.
+
+The single-writer workflow concurrency group prevents overlapping official apply jobs. Repeated, interrupted, or stale deliveries are checked against the current GitHub Issue state, body digest, and default-branch head SHA; completed Issues are not rewritten. The permanent audit records tested commit, per-criterion JUnit SHA256 digests, runner OS, test counts and report paths. Hosted artifact URLs have a **30-day retention period**, so the audit explicitly identifies them as expiring; source tests and digest references remain in Git history.
 
 ## Required GitHub settings
 
