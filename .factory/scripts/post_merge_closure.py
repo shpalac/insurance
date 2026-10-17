@@ -1,0 +1,354 @@
+#!/usr/bin/env python3
+"""Post-merge acceptance reconciliation. Never close an Issue on PR text alone.
+
+Two-step protocol:
+  prepare: read-only token; run allowlisted acceptance tests against current main.
+  apply: issues:write token; verify immutable proof + current remote state, then audit/close.
+
+No Issue-provided shell commands are evaluated. Absence of any proof fails closed.
+"""
+
+from __future__ import annotations
+
+import argparse
+import base64
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import sys
+from urllib import error, parse, request
+
+from integration_policy import closure_progress
+from run_acceptance_manifest import AcceptanceError, run_criteria
+from validate_issue_manifest import extract_manifest, validate_body
+
+ROOT = Path(__file__).resolve().parents[2]
+SHA = re.compile(r"^[0-9a-f]{40}$")
+REPO = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+REQUIRED_JOBS = ("unit-tests", "factory-bootstrap-gate", "factory-gate-preflight")
+STATUS_MARKER = "<!-- FACTORY_CLOSURE_STATUS_V1 -->"
+AUDIT_PREFIX = "<!-- FACTORY_CLOSURE_AUDIT_V1 "
+MAX_ISSUES = 100
+MAX_PRS = 1000
+
+
+class ReconcileError(RuntimeError):
+    pass
+
+
+class GitHub:
+    def __init__(self, repo: str, token: str):
+        if not REPO.fullmatch(repo) or not token:
+            raise ReconcileError("Missing repository or authentication")
+        self.repo = repo
+        self.token = token
+
+    def call(self, method: str, endpoint: str, data: dict | None = None):
+        if not endpoint.startswith("/") or "://" in endpoint:
+            raise ReconcileError("Invalid API endpoint")
+        url = "https://api.github.com/repos/" + self.repo + endpoint
+        payload = json.dumps(data).encode() if data is not None else None
+        req = request.Request(url, data=payload, method=method, headers={
+            "Authorization": "Bearer " + self.token,
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+            **({"Content-Type": "application/json"} if payload is not None else {}),
+        })
+        try:
+            with request.urlopen(req, timeout=25) as response:
+                raw = response.read()
+        except (error.HTTPError, error.URLError) as exc:
+            raise ReconcileError(f"GitHub {method} request failed ({getattr(exc, 'code', 'network')})") from exc
+        return json.loads(raw) if raw else {}
+
+    def get(self, endpoint: str):
+        return self.call("GET", endpoint)
+
+    def post(self, endpoint: str, data: dict):
+        return self.call("POST", endpoint, data)
+
+    def patch(self, endpoint: str, data: dict):
+        return self.call("PATCH", endpoint, data)
+
+    def pages(self, endpoint: str, *, limit: int = 1000):
+        """Never use a truncated result set to authorize closure."""
+        found = []
+        for page in range(1, limit // 100 + 2):
+            separator = "&" if "?" in endpoint else "?"
+            batch = self.get(f"{endpoint}{separator}per_page=100&page={page}")
+            if not isinstance(batch, list):
+                raise ReconcileError("Unexpected GitHub pagination payload")
+            if len(found) + len(batch) > limit:
+                raise ReconcileError("Pagination cap exceeded; refusing incomplete evidence")
+            found.extend(batch)
+            if len(batch) < 100:
+                return found
+        raise ReconcileError("Incomplete pagination")
+
+
+def current_main(api: GitHub) -> str:
+    ref = api.get("/git/ref/heads/main")
+    sha = ref.get("object", {}).get("sha")
+    if not isinstance(sha, str) or not SHA.fullmatch(sha):
+        raise ReconcileError("Invalid main ref SHA")
+    return sha
+
+
+def require_main_checks(api: GitHub, sha: str):
+    if current_main(api) != sha:
+        raise ReconcileError("Head changed; retry on the new main SHA")
+    result = api.get(f"/commits/{sha}/check-runs?per_page=100")
+    checks = result.get("check_runs")
+    if not isinstance(checks, list) or result.get("total_count", 0) > 100:
+        raise ReconcileError("Missing or truncated check-run evidence")
+    for name in REQUIRED_JOBS:
+        valid = [check for check in checks if
+                 check.get("name") == name and check.get("head_sha") == sha
+                 and check.get("app", {}).get("slug") == "github-actions"
+                 and check.get("status") == "completed"
+                 and check.get("conclusion") == "success"]
+        if not valid:
+            raise ReconcileError(f"Required default-branch check not green: {name}")
+
+
+def is_ancestor(api: GitHub, merge_sha: str, main_sha: str) -> bool:
+    if merge_sha == main_sha:
+        return True
+    result = api.get(f"/compare/{merge_sha}...{main_sha}")
+    return result.get("status") in ("ahead", "identical") and result.get("behind_by") == 0
+
+
+def linked_merged_prs(issue: int, prs: list[dict], api: GitHub, sha: str):
+    """Only completed PRs targeting main with explicit Refs #N and ancestry."""
+    token = re.compile(r"(?<![A-Za-z0-9_])Refs?\s+#" + str(issue) + r"\b", re.I)
+    found = []
+    for pr in prs:
+        if (not isinstance(pr, dict) or not pr.get("merged_at")
+                or pr.get("base", {}).get("ref") != "main"
+                or not isinstance(pr.get("body"), str)
+                or not token.search(pr["body"])):
+            continue
+        merge_sha = pr.get("merge_commit_sha")
+        if not isinstance(merge_sha, str) or not SHA.fullmatch(merge_sha):
+            continue
+        if is_ancestor(api, merge_sha, sha):
+            found.append({"number": pr["number"], "merge_sha": merge_sha})
+    return sorted(found, key=lambda item: item["number"])
+
+
+def digest(content: str) -> str:
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+
+def prepare(api: GitHub, sha: str, run_id: int, *, run=run_criteria):
+    require_main_checks(api, sha)
+    issues = [
+        issue for issue in api.pages("/issues?state=open", limit=MAX_ISSUES)
+        if "pull_request" not in issue
+    ]
+    prs = api.pages("/pulls?state=closed&base=main", limit=MAX_PRS)
+    plan = {"schema_version": 1, "main_sha": sha, "run_id": run_id, "items": []}
+    for issue in issues:
+        number = issue.get("number")
+        if type(number) is not int:
+            continue
+        refs = linked_merged_prs(number, prs, api, sha)
+        if not refs:
+            continue
+        body = issue.get("body") or ""
+        item = {
+            "issue": number, "body_digest": digest(body), "prs": refs,
+            "status": "blocked", "reason": "invalid_or_missing_manifest",
+            "criteria": [], "evidence": [],
+        }
+        errors = validate_body(body, expected_issue_id=number)
+        if not errors:
+            manifest = extract_manifest(body)
+            item["criteria"] = [ac["id"] for ac in manifest["acceptance_criteria"]]
+            if any(ac["runner_os"] != "ubuntu-latest"
+                   for ac in manifest["acceptance_criteria"]):
+                item["reason"] = "unsupported_runner_pending_hosted_verification"
+            else:
+                try:
+                    results = run(body, issue_id=number, head_sha=sha, root=ROOT)
+                    if [r["id"] for r in results] != item["criteria"]:
+                        raise AcceptanceError("Acceptance coverage is incomplete")
+                    for row in results:
+                        if (row.get("status") != "PASS"
+                                or type(row.get("testcases")) is not int
+                                or row["testcases"] < 1
+                                or type(row.get("assertions")) is not int
+                                or row["assertions"] < 1
+                                or row.get("head_sha") != sha):
+                            raise AcceptanceError("Incomplete acceptance proof")
+                    latest = refs[-1]
+                    evidence = [{
+                        "id": row["id"], "verified_main_sha": sha,
+                        "status": "PASS", "assertions": row["assertions"],
+                        "permanent_regression": True,
+                        "artifact_url": f"https://github.com/{api.repo}/actions/runs/{run_id}",
+                        "merge_sha": latest["merge_sha"], "pr_number": latest["number"],
+                    } for row in results]
+                    audit = closure_progress(
+                        criteria_ids=item["criteria"], evidence=evidence, main_sha=sha
+                    )
+                    if not audit["should_close"]:
+                        raise AcceptanceError("Some acceptance criteria were not proven")
+                    item["status"] = "ready"
+                    item["reason"] = "all_acceptance_green_on_main"
+                    item["evidence"] = evidence
+                except (AcceptanceError, OSError, ValueError) as exc:
+                    item["reason"] = "acceptance_incomplete_or_untrusted_target"
+                    # Do not leak stdout, stderr, or issue-supplied strings into public comments.
+                    print(f"Issue #{number}: acceptance blocked ({type(exc).__name__})")
+        plan["items"].append(item)
+    if len(json.dumps(plan)) > 50000:
+        raise ReconcileError("Proof exceeds safe output size")
+    return plan
+
+
+def audit_marker(issue: int, sha: str) -> str:
+    return f"{AUDIT_PREFIX}issue={issue} main={sha} -->"
+
+
+def existing_comments(api: GitHub, issue: int) -> list[dict]:
+    return api.pages(f"/issues/{issue}/comments", limit=500)
+
+
+def blocked_message(item: dict, sha: str) -> str:
+    reason = item["reason"]
+    if reason not in {
+        "invalid_or_missing_manifest",
+        "unsupported_runner_pending_hosted_verification",
+        "acceptance_incomplete_or_untrusted_target",
+    }:
+        raise ReconcileError("Untrusted blocking reason")
+    return (
+        f"{STATUS_MARKER}\n"
+        "Post-merge completion remains **blocked**; the Issue is intentionally open.\n\n"
+        f"- Verification main SHA: {sha}\n"
+        f"- Reason: \`{reason}\`\n"
+        "- The linked PR has merged, but the complete executable acceptance contract "
+        "has not been verified on the current default branch.\n"
+        "- No independent review is required. Passing all registered acceptance "
+        "criteria and default-branch CI is required.\n"
+    )
+
+
+def apply(api: GitHub, sha: str, plan: dict):
+    if plan.get("schema_version") != 1 or plan.get("main_sha") != sha:
+        raise ReconcileError("Proof is not bound to current SHA")
+    require_main_checks(api, sha)
+    items = plan.get("items")
+    if not isinstance(items, list) or len(items) > MAX_ISSUES:
+        raise ReconcileError("Invalid issue proof set")
+    if len({item.get("issue") for item in items if isinstance(item, dict)}) != len(items):
+        raise ReconcileError("Duplicate issue records")
+    closed = []
+    blocked = []
+    for item in items:
+        number = item.get("issue")
+        if type(number) is not int or number < 1:
+            raise ReconcileError("Malformed Issue number")
+        issue = api.get(f"/issues/{number}")
+        if issue.get("state") != "open" or "pull_request" in issue:
+            continue
+        body = issue.get("body") or ""
+        if digest(body) != item.get("body_digest"):
+            blocked.append({"issue": number, "reason": "issue_spec_changed"})
+            continue
+        refs = item.get("prs", [])
+        if not refs:
+            raise ReconcileError("Missing linked merged PR")
+        for entry in refs:
+            pr = api.get(f"/pulls/{entry['number']}")
+            if (not pr.get("merged_at") or pr.get("merge_commit_sha") != entry["merge_sha"]
+                    or pr.get("base", {}).get("ref") != "main"
+                    or not re.search(r"(?<![A-Za-z0-9_])Refs?\s+#" + str(number) + r"\b",
+                                     pr.get("body") or "", re.I)
+                    or not is_ancestor(api, entry["merge_sha"], sha)):
+                raise ReconcileError("Linked PR no longer verifies")
+        comments = existing_comments(api, number)
+        if item.get("status") != "ready":
+            message = blocked_message(item, sha)
+            old = next((c for c in comments if STATUS_MARKER in c.get("body", "")), None)
+            if old and old.get("body") != message:
+                api.patch(f"/issues/comments/{old['id']}", {"body": message})
+            elif not old:
+                api.post(f"/issues/{number}/comments", {"body": message})
+            blocked.append({"issue": number, "reason": item["reason"]})
+            continue
+        errors = validate_body(body, expected_issue_id=number)
+        if errors:
+            blocked.append({"issue": number, "reason": "manifest_changed_or_invalid"})
+            continue
+        criteria = [ac["id"] for ac in extract_manifest(body)["acceptance_criteria"]]
+        if criteria != item.get("criteria"):
+            raise ReconcileError("Proof criterion mismatch")
+        evidence = item.get("evidence", [])
+        if (len(evidence) != len(criteria) or
+                any(e.get("pr_number") not in [p["number"] for p in refs]
+                    or e.get("merge_sha") not in [p["merge_sha"] for p in refs]
+                    or e.get("artifact_url") !=
+                    f"https://github.com/{api.repo}/actions/runs/{plan['run_id']}"
+                    for e in evidence)):
+            raise ReconcileError("Invalid linked acceptance evidence")
+        decision = closure_progress(criteria_ids=criteria, evidence=evidence, main_sha=sha)
+        if not decision["should_close"]:
+            blocked.append({"issue": number, "reason": "incomplete_criteria"})
+            continue
+        if current_main(api) != sha:
+            raise ReconcileError("Default branch changed during reconciliation")
+        marker = audit_marker(number, sha)
+        comment = next((c for c in comments if marker in c.get("body", "")), None)
+        if not comment:
+            audit = json.dumps(decision, sort_keys=True, indent=2)
+            api.post(f"/issues/{number}/comments", {
+                "body": marker + "\nVerified automatic closure audit:\n\n"
+                        + "~~~json\n" + audit + "\n~~~\n"
+                        + "\nIndependent review is optional; acceptance and CI were required."
+            })
+        api.patch(f"/issues/{number}", {"state": "closed", "state_reason": "completed"})
+        closed.append(number)
+    return {"closed": closed, "blocked": blocked, "main_sha": sha}
+
+
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("mode", choices=("prepare", "apply"))
+    p.add_argument("--repo", default=os.getenv("GITHUB_REPOSITORY", ""))
+    p.add_argument("--sha", required=True)
+    p.add_argument("--run-id", type=int, default=int(os.getenv("GITHUB_RUN_ID", "0")))
+    p.add_argument("--output", type=Path)
+    args = p.parse_args(argv)
+    if not SHA.fullmatch(args.sha):
+        p.error("expected an exact 40-character main commit SHA")
+    try:
+        api = GitHub(args.repo, os.getenv("GH_TOKEN", ""))
+        if args.mode == "prepare":
+            if not args.output:
+                raise ReconcileError("Prepare requires --output")
+            plan = prepare(api, args.sha, args.run_id)
+            args.output.write_text(json.dumps(plan, sort_keys=True), encoding="utf-8")
+            output = os.getenv("GITHUB_OUTPUT")
+            if output:
+                encoded = base64.b64encode(json.dumps(plan, sort_keys=True).encode()).decode()
+                with open(output, "a", encoding="utf-8") as fp:
+                    fp.write("proof=" + encoded + "\n")
+            print(json.dumps({"status": "prepared", "items": len(plan["items"])}))
+        else:
+            encoded = os.getenv("CLOSURE_PROOF", "")
+            if not encoded or len(encoded) > 80000:
+                raise ReconcileError("Missing or oversized prior read-only proof")
+            plan = json.loads(base64.b64decode(encoded, validate=True))
+            print(json.dumps(apply(api, args.sha, plan), sort_keys=True))
+    except (ReconcileError, OSError, ValueError, KeyError, TypeError) as exc:
+        print(f"ERROR: reconciliation failed closed: {exc}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
