@@ -1,5 +1,5 @@
 # Definition of done
 
-A Developer is done when scoped code and tests are in a reviewable PR with required gates green. A Reviewer is done after independent recorded review. An Integrator is done only after merge to `main`, post-merge CI and full acceptance evidence, immutable audit, and idempotent Issue closure.
+A Developer is done when scoped code and tests are in a PR with required CI and acceptance gates green. Review is optional for every Issue, including protected-path changes (which still require policy/owner authorization). An Integrator is done only after merging the exact tested head to `main`, post-merge CI and full acceptance evidence, immutable audit, and idempotent Issue closure.
 
-The factory itself is *not operational* until the happy-path and fault-injection canaries prove dispatch, lease fencing, CI repair, independent review, merge, closure, and recovery on hosted runners.
+The factory itself is *not operational* until the happy-path and fault-injection canaries prove dispatch, lease fencing, CI repair, CI-only merge admission, closure, and recovery on hosted runners.

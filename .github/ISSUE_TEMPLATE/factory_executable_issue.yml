@@ -4,7 +4,7 @@ labels: ["status:triage"]
 body:
   - type: markdown
     attributes:
-      value: "Validation workflow is planned in Phase 2. Until installed, this issue template does not confer 'ready' status."
+      value: "CI-only merge policy: no independent code review required. The Issue must still pass validation, tests and protected-path authorization. Issue creation does not confer ready status."
   - type: textarea
     id: objective
     attributes:

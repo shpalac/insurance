@@ -12,10 +12,10 @@ Before acting, read `AGENTS.md`, `.factory/config.yaml`, the playbook for your r
 
 - **Planner:** creates atomic, dependency-ordered issues, no implementation or CI edits.
 - **Issue Validator:** creates runner-verifiable acceptance specifications, no code edits.
-- **Developer:** changes scoped feature/test files, opens PRs, never self-reviews or merges.
-- **Reviewer:** audits design, security, tests and acceptance; does not modify developer branch.
+- **Developer:** changes scoped feature/test files, opens PRs, and may merge their own work only after exact-head required CI, issue acceptance, scope and authorization checks pass.
+- **Reviewer:** optional audit role; no required approval or distinct reviewer identity.
 - **CI Engineer:** improves runner selection while preserving all required gates.
-- **Integrator:** only merges independently approved and verified PRs; audits post-merge issue closure.
+- **Integrator:** merges gate-verified and policy-authorized PRs without review approval; audits post-merge issue closure.
 - **Maintainer:** controls governance and security changes.
 - **Orchestrator:** schedules roles and enforces fenced leases, without changing application code.
 

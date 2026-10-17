@@ -48,6 +48,12 @@ class ConfigPolicyTests(unittest.TestCase):
             lambda config: config["repository"].update(visibility="private")
         ))
 
+    def test_ci_only_review_policy_is_required(self):
+        self.assertEqual(self.config["repository"]["review_policy"], "ci_only")
+        self.assertTrue(self.check_modified(
+            lambda config: config["repository"].update(review_policy="independent")
+        ))
+
     def test_agents_disabled_by_default(self):
         self.assertFalse(self.config["orchestration"]["enabled"])
 
