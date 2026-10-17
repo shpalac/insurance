@@ -40,7 +40,7 @@ class Issue38Acceptance(unittest.TestCase):
 
     def test_ac_2_refs_accepted_and_partial_progress_is_not_false_completion(self):
         self.assertEqual(parse_intent("Refs #38"), ([38], []))
-        self.assertEqual(parse_intent("Refs #38\\nCompletes #38"), ([38], [38]))
+        self.assertEqual(parse_intent("Refs #38\nCompletes #38"), ([38], [38]))
         base = {"id": "AC-1", "status": "PASS", "verified_main_sha": SHA,
                 "assertions": 3, "permanent_regression": True,
                 "artifact_url": "https://github.com/shpalac/insurance/actions/runs/1",
@@ -58,7 +58,7 @@ class Issue38Acceptance(unittest.TestCase):
         for raw in ("Closes #38", "This fixes #38", "please ResOlves #38"):
             with self.subTest(raw=raw):
                 with self.assertRaises(CompletionError):
-                    parse_intent("Refs #38\\n" + raw)
+                    parse_intent("Refs #38\n" + raw)
         class GitHub:
             def get(self, endpoint):
                 return {"status": "ahead", "behind_by": 0}
