@@ -45,10 +45,9 @@ class Issue3Acceptance(unittest.TestCase):
         for action in ("opened", "edited"):
             bad = evaluate(issue_event(action=action, body="malformed"), {"approved"})
             self.assertFalse(bad["ready"])
-            self.assertIn(
-                "status:triage",
-                desired_labels({"status:triage"}, ready=bad["ready"])[0]
-                | {"status:triage"},
+            self.assertEqual(
+                desired_labels({"status:ready"}, ready=bad["ready"]),
+                ({"status:triage"}, {"status:ready"}),
             )
         emit(1, self._testMethodName)
 
