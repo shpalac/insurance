@@ -141,6 +141,13 @@ class LeaseTests(unittest.TestCase):
             now=NOW, approved_logins={lease.owner},
         ))
 
+    def test_ready_issue_before_review_only_pr(self):
+        ordered = prioritize([
+            {"kind": "review-pr", "number": 9},
+            {"kind": "ready-issue", "number": 2},
+        ])
+        self.assertEqual([item["number"] for item in ordered], [9, 2])
+
     def test_prioritize_failing_pr_before_ready_issue(self):
         ordered = prioritize([
             {"kind": "ready-issue", "number": 2},
