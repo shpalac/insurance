@@ -42,25 +42,26 @@ class IntegrationTests(unittest.TestCase):
     def test_approved_green_pr_may_enter_queue(self):
         self.assertEqual(assess_merge(approved_pr()), [])
 
-    def test_self_approval_is_rejected(self):
+    def test_no_reviews_needed_for_ci_green_pr(self):
+        pr = approved_pr()
+        pr["reviews"] = []
+        self.assertEqual(assess_merge(pr), [])
+
+    def test_self_or_stale_reviews_do_not_gate_merges(self):
         pr = approved_pr()
         pr["reviews"][0]["reviewer"] = "dev-agent"
-        self.assertTrue(assess_merge(pr))
-
-    def test_stale_review_is_rejected(self):
-        pr = approved_pr()
         pr["reviews"][0]["head_sha"] = "b" * 40
-        self.assertTrue(assess_merge(pr))
+        self.assertEqual(assess_merge(pr), [])
 
     def test_failed_acceptance_blocks(self):
         pr = approved_pr()
         pr["checks"]["acceptance-gate"]["conclusion"] = "failure"
         self.assertTrue(assess_merge(pr))
 
-    def test_unresolved_threads_block(self):
+    def test_unresolved_review_threads_are_not_required_for_ci_only_policy(self):
         pr = approved_pr()
         pr["unresolved_threads"] = 1
-        self.assertTrue(assess_merge(pr))
+        self.assertEqual(assess_merge(pr), [])
 
     def test_protected_paths_require_maintainer(self):
         pr = approved_pr()
