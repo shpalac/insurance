@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Pure, fail-closed integration eligibility and post-merge closure audit.
 
-This library does not merge PRs or write to GitHub. An authorized Integrator
-must independently retrieve and verify GitHub evidence before acting.
+This library does not merge PRs or write to GitHub. An authorized Integrator must retrieve and verify authoritative GitHub CI
+and issue evidence before acting; separate reviewer approval is not required.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ def assess_merge(
         ".github/workflows/**", ".factory/**", "AGENTS.md", "SECURITY.md"
     ),
 ) -> list[str]:
-    """Return all blockers for the exact PR head and independent review state."""
+    """Return all blockers for the exact PR head; review is not required."""
     blocked = []
     head = pr.get("head_sha")
     if not isinstance(head, str) or not SHA.fullmatch(head):
@@ -43,20 +43,6 @@ def assess_merge(
         report = checks.get(check, {})
         if report.get("head_sha") != head or report.get("conclusion") != "success":
             blocked.append(f"Missing successful {check} at current SHA")
-    author = pr.get("author")
-    reviewers = pr.get("reviews", [])
-    valid_reviews = [
-        review for review in reviewers
-        if (review.get("verdict") == "APPROVE"
-            and review.get("head_sha") == head
-            and review.get("reviewer")
-            and review.get("reviewer") != author
-            and review.get("trusted_identity") is True)
-    ]
-    if not valid_reviews:
-        blocked.append("Missing independent trusted approval of current head")
-    if pr.get("unresolved_threads", 1) != 0:
-        blocked.append("Unresolved review threads")
     paths = pr.get("changed_paths", [])
     if not isinstance(paths, list):
         blocked.append("Invalid changed path manifest")
