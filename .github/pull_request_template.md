@@ -1,6 +1,9 @@
 Refs #N
 Completes #N
 
+## Mandatory Issue linkage
+All normal PRs must contain standalone `Refs #N` pointing to an open executable Issue. For an exceptional docs-only maintenance PR with no Issue, the repository owner must post an exact-head comment `FACTORY-MAINTENANCE-AUTH sha=<40-hex-PR-head> reason=<12-300 chars>`; future commits invalidate it. No PR author can self-authorize by text or labels.
+
 ## Completion intent
 **Default: one Issue = one finishing PR.** Replace both `#N` placeholders with the actual Issue number. Every acceptance criterion must have a real, registered CI test before merge. The mandatory completion gate rejects missing, skipped or failed AC tests; verified post-merge CI writes the closure audit and automatically closes the Issue.
 

@@ -161,6 +161,41 @@ jobs:
               )
               with urllib.request.urlopen(req, timeout=20) as response:
                   payload[str(n)] = json.load(response)
+          # The only no-Issue exception is SHA-bound owner authorization for
+          # a docs-only maintenance PR. Read metadata in this token-bearing,
+          # repository-workflow step, never in candidate test code.
+          if not ids and event.get("pull_request"):
+              pr = event["pull_request"]
+              pr_number = pr["number"]
+              expected_head = pr["head"]["sha"]
+              owner = os.environ["GITHUB_REPOSITORY_OWNER"].lower()
+              def read_public(path):
+                  req = urllib.request.Request(
+                      f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}{path}",
+                      headers={"Authorization": "Bearer " + os.environ["GH_TOKEN"],
+                               "Accept": "application/vnd.github+json"},
+                  )
+                  with urllib.request.urlopen(req, timeout=20) as response:
+                      return json.load(response)
+              comments = read_public(f"/issues/{pr_number}/comments?per_page=100")
+              changed = read_public(f"/pulls/{pr_number}/files?per_page=100")
+              if len(comments) >= 100 or len(changed) >= 100:
+                  raise SystemExit("Maintenance approval evidence pagination incomplete")
+              marker = re.compile(
+                  r"^FACTORY-MAINTENANCE-AUTH sha=([a-f0-9]{40}) reason=(.{12,300})$"
+              )
+              authorized_reason = ""
+              for comment in comments:
+                  match = marker.fullmatch((comment.get("body") or "").strip())
+                  if (match and match.group(1) == expected_head
+                          and (comment.get("user") or {}).get("login", "").lower() == owner):
+                      authorized_reason = match.group(2)
+              payload["_maintenance"] = {
+                  "head_sha": expected_head,
+                  "owner_authorized": bool(authorized_reason),
+                  "reason": authorized_reason,
+                  "changed_paths": [f["filename"] for f in changed],
+              }
           pathlib.Path("completion-issues.json").write_text(
               json.dumps(payload), encoding="utf-8"
           )
