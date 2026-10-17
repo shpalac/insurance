@@ -8,6 +8,7 @@ from lease_state import InMemoryLeaseStore,acquire,checkpoint
 from lease_fencing import WorkerProof
 from pr_merge_coordinator import REQUIRED
 from repair_recovery import approve_candidate,identify_failure
+from repair_canary_proof import verify_live_repair_proof,LiveRepairProofMissing
 
 SHA="a"*40
 MAIN="b"*40
@@ -33,6 +34,14 @@ class Acceptance(unittest.TestCase):
             "main_sha":MAIN,"store":store,"proof":proof,
             "authenticated_login":"integrator","approved_logins":{"integrator"},
             "now":now}
+        class NoRealRepair:
+            def get(self,path):
+                return {"total_count": 0, "workflow_runs": []}
+        with self.assertRaises(LiveRepairProofMissing):
+            verify_live_repair_proof(NoRealRepair(), MAIN)
+        closure = (ROOT / ".factory/scripts/post_merge_closure.py").read_text()
+        self.assertIn("verify_live_repair_proof(api, sha)", closure)
+        self.assertIn("for dependency in (43, 44, 45)", closure)
         self.assertTrue(approve_candidate(**kw))
         self.assertFalse(approve_candidate(**dict(kw,comments=[])))
         self.assertFalse(approve_candidate(**dict(kw,checks=checks[:-1])))
