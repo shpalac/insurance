@@ -31,7 +31,7 @@ receipt and echo the idempotency key.
 
 ## Checkpoints and queue progression
 
-The Git ref lease store uses immutable commit snapshots and non-forforced CAS
+The Git ref lease store uses immutable commit snapshots and non-forced CAS
 updates. A live lease prevents a second claim; branch and commit checkpoints
 survive process restarts. A closed issue's lease is retired by a CAS before the
 controller selects the next eligible task. The bounded planner prioritizes
