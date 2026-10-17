@@ -92,6 +92,22 @@ def handle(event: dict, api: API, owner: str) -> dict:
         return {"status": "blocked", "errors": ["Missing unambiguous PR number"]}
     n = links[0]["number"]
     pr = api.call("GET", f"/pulls/{n}")
+    # Privileged workflow_run jobs must not admit fork PRs. Candidate
+    # contents are metadata only and are never checked out or executed.
+    base_repo = os.environ.get("GITHUB_REPOSITORY", "").lower()
+    head_repo = ((pr.get("head") or {}).get("repo") or {}).get("full_name", "").lower()
+    if not base_repo or not head_repo or head_repo != base_repo:
+        sha = (pr.get("head") or {}).get("sha")
+        if isinstance(sha, str) and SHA.fullmatch(sha):
+            api.call("POST", "/check-runs", {
+                "name": "factory-trusted-admission",
+                "head_sha": sha,
+                "status": "completed",
+                "conclusion": "failure",
+                "output": {"title": "Factory trusted merge admission",
+                           "summary": "BLOCKED: fork PRs are not eligible for trusted admission"},
+            })
+        return {"status": "blocked", "errors": ["Fork PRs are not eligible for trusted admission"]}
     jobs = api.call("GET", f"/actions/runs/{run['id']}/jobs?per_page=100")
     files = api.call("GET", f"/pulls/{n}/files?per_page=100")
     comments = api.call("GET", f"/issues/{n}/comments?per_page=100")
