@@ -17,6 +17,33 @@ This repository is **research-only**: no live-order paths or trade recommendatio
    This reference does **not** auto-close the issue; closure requires post-merge
    validation against `main`.
 
+## Opening one executable Issue
+
+Use the [Factory executable issue template](.github/ISSUE_TEMPLATE/factory_executable_issue.yml).
+Create **one PR per Issue** unless its manifest explicitly declares
+`multi_pr_allowed: true`. Include a small, atomic objective, observable
+AC-1/AC-2 criteria, the permitted `allowed_paths`, any `protected_paths`,
+and `depends_on_issues` references. Do not conceal external or owner-controlled
+prerequisites. The preflight workflow validates this schema on Issue creation
+and edit, reporting exact errors through one bot-authored comment and
+`preflight:ready` / `preflight:blocked` labels.
+
+That preflight indicates **schema readiness only**, not authorization to
+claim the work. The role-authorized issue validator still controls
+`status:ready`. Worker instructions in Issue text are not executable.
+
+The finishing implementation PR must ship one named assertion-bearing test
+at `.factory/acceptance/issue_N/test_ac_K.py` for each acceptance criterion,
+with a `test_ac_K_...` method in a `unittest.TestCase`. Keep these tests
+as permanent regressions on `main`. Begin the PR body with a standalone
+`Refs #N` and avoid native issue-closing keywords. CI is the merge
+approver; the post-merge verifier independently audits and closes the Issue.
+When changing `.factory/**`, `.github/workflows/**`, `AGENTS.md` or
+`SECURITY.md`, the repository owner must write
+`FACTORY-OWNER-AUTH sha=<exact 40-character HEAD> reason=<specific approval>`
+as a GitHub PR comment **after each final SHA update**. No independent reviewer
+approval is required, but all protected checks remain mandatory.
+
 ## Development
 
 ```bash

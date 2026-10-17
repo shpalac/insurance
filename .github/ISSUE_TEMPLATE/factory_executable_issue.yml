@@ -5,10 +5,12 @@ body:
   - type: markdown
     attributes:
       value: |
-        When a PR fully satisfies all acceptance criteria, use `Refs #N` and `Completes #N`.
-        Required `issue-completion` CI verifies all registered AC tests before merge.
+        The PR begins with a standalone `Refs #N`; audited post-merge closure verifies every criterion.
+        Required `issue-completion` CI verifies all co-shipped AC tests before merge.
         After merge, the main-branch verifier writes the audit and automatically closes this Issue.
-        For a partial PR, use only `Refs #N`. No reviewer approval is required.
+        Prefer one PR per Issue. Declare dependencies and allowed paths.
+        For protected files obtain a fresh exact-head FACTORY-OWNER-AUTH comment.
+        No independent reviewer approval is required, but all five checks remain mandatory.
   - type: textarea
     id: objective
     attributes:
@@ -17,13 +19,31 @@ body:
     validations:
       required: true
   - type: textarea
+    id: factory_alignment
+    attributes:
+      label: Factory alignment and boundaries
+      description: How does the task preserve required CI, issue closure, roles, authorization and project architecture?
+      placeholder: Preserve immutable commit evidence and fail-closed acceptance. Specify non-goals.
+    validations:
+      required: true
+  - type: textarea
+    id: observable_criteria
+    attributes:
+      label: Observable acceptance criteria
+      description: List AC-1, AC-2, ... as independently executable behaviors, including negative and failure cases.
+      placeholder: |
+        AC-1: A named test proves the happy path.
+        AC-2: A named test proves a failure is blocked.
+    validations:
+      required: true
+  - type: textarea
     id: acceptance
     attributes:
       label: Executable acceptance manifest
       description: |
         The issue ID is resolved automatically. Replace the placeholder test description, paths,
-        and command metadata with the actual criteria. The PR must register each trusted test
-        in .factory/acceptance-targets.json and emit a positive JUnit report.
+        and command metadata with the actual criteria. Each PR co-ships .factory/acceptance/issue_N/test_ac_K.py for every AC,
+        with runtime assertions and a valid JUnit result; do not copy Issue-authored commands into CI.
       value: |
         ```yaml factory-acceptance-manifest
         schema_version: "1.0"
@@ -47,7 +67,7 @@ body:
         definition_of_done:
           require_new_or_updated_tests: true
           min_diff_coverage_percent: 90
-          require_architecture_doc_sync: false
+          require_architecture_doc_sync: true
         ```
     validations:
       required: true
