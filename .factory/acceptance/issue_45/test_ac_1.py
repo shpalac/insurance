@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 import unittest
 import xml.etree.ElementTree as ET
+import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / ".factory/scripts"))
@@ -16,7 +17,7 @@ def emit():
     path = ROOT / "reports" / "ac-1.xml"
     path.parent.mkdir(parents=True, exist_ok=True)
     suite = ET.Element("testsuite", tests="1", failures="0", errors="0",
-                       skipped="0", assertions="17")
+                       skipped="0", assertions="21")
     ET.SubElement(suite, "testcase", classname="Issue45AC1",
                   name="test_ac_1_dispatch_is_allowlisted_and_idempotent")
     ET.ElementTree(suite).write(path, encoding="utf-8", xml_declaration=True)
@@ -109,6 +110,13 @@ class Acceptance(unittest.TestCase):
         self.assertEqual(opener.request.get_header("Idempotency-key"),
                          envelope["idempotency_key"])
         self.assertNotIn(role_token.encode(), opener.request.data)
+        with self.assertRaises(DispatchDenied):
+            WebhookBackend("http://gateway.example.test/dispatch", role_token)
+        with self.assertRaises(DispatchDenied):
+            WebhookBackend("https://gateway.example.test/dispatch", "")
+        config = yaml.safe_load((ROOT / ".factory/config.yaml").read_text())
+        self.assertFalse(config["orchestration"]["enabled"])
+        self.assertEqual(config["orchestration"]["agent_providers"], [])
         emit()
 
 if __name__ == "__main__":
