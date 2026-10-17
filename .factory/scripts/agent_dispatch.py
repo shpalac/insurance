@@ -189,20 +189,31 @@ def main() -> int:
             print(json.dumps({"status": "idle", "reason": "no_eligible_queue_item"}))
             return 0
 
-        role = plan["role"]
+        if plan.get("resume"):
+            lease = leases.get(plan["issue"])
+            if lease is None or lease.owner not in approved:
+                print(json.dumps({"status": "disabled",
+                                  "reason": "resume_lease_identity_not_approved"}))
+                return 0
+            dispatch_owner = lease.owner
+            role = lease.role
+        else:
+            role = plan["role"]
+            dispatch_owner = owner
+            lease = acquire(
+                store, entity=plan["issue"], owner=dispatch_owner, role=role,
+                now=now,
+                ttl=timedelta(minutes=config["limits"]["lease_ttl_minutes"]),
+            )
+
         role_secret = "FACTORY_AGENT_TOKEN_" + role.upper().replace("-", "_")
         role_token = os.getenv(role_secret, "")
         if not role_token:
             print(json.dumps({"status": "disabled", "reason": "role_scoped_credential_missing"}))
             return 0
 
-        lease = acquire(
-            store, entity=plan["issue"], owner=owner, role=role,
-            now=now,
-            ttl=timedelta(minutes=config["limits"]["lease_ttl_minutes"]),
-        )
         receipt = dispatch(
-            store=store, issue=plan["issue"], authenticated_login=owner,
+            store=store, issue=plan["issue"], authenticated_login=dispatch_owner,
             role=role, approved_logins=approved, now=now,
             provider=provider, configured_providers=providers,
             transport=WebhookBackend(endpoint, role_token), enabled=True,
