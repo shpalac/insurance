@@ -57,6 +57,10 @@ class ImpactAndGateTests(unittest.TestCase):
         result = impacted([], HEAD)
         self.assertTrue(all(result["selected_jobs"].values()))
 
+    def test_deleted_test_file_stays_affected(self):
+        result = impacted(["tests/test_core.py"], HEAD)
+        self.assertTrue(result["selected_jobs"]["scanner"])
+
     def test_reject_incomplete_sha(self):
         with self.assertRaises(ValueError):
             impacted(["docs/README.md"], "main")
