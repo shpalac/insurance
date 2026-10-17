@@ -68,7 +68,7 @@ def git_changed_paths(base_sha: str, head_sha: str) -> list[str]:
     if not SHA.fullmatch(base_sha) or not SHA.fullmatch(head_sha):
         raise ValueError("Unsafe or incomplete commit SHA")
     result = subprocess.run(
-        ["git", "diff", "--name-only", "--diff-filter=ACMR", base_sha, head_sha],
+        ["git", "diff", "--name-only", "--diff-filter=ACMRD", base_sha, head_sha],
         capture_output=True, text=True, timeout=30, check=True,
     )
     return sorted(set(result.stdout.splitlines()))
