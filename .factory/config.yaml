@@ -1,0 +1,33 @@
+schema_version: "1.0"
+repository:
+  default_branch: "main"
+  visibility: "public"
+  issue_reference_mode: "refs"
+  merge_strategy: "squash_auto_merge"
+  protected_paths:
+    - ".github/workflows/**"
+    - ".factory/**"
+    - "AGENTS.md"
+    - "SECURITY.md"
+orchestration:
+  enabled: false
+  agent_backend: "external"
+  approved_agent_logins: []
+  lease_backend: "github_ref_cas"
+  max_concurrent_agents: 2
+  external_llm_backend_required: true
+runners:
+  default: "ubuntu-latest"
+  allowed:
+    - "ubuntu-latest"
+    - "macos-latest"
+    - "windows-latest"
+verification:
+  min_diff_coverage_percent: 90
+limits:
+  lease_ttl_minutes: 30
+  heartbeat_interval_minutes: 5
+  max_ci_repair_attempts: 3
+  max_merge_conflict_rebases: 2
+  max_replan_attempts: 2
+  fast_lane_target_seconds: 180

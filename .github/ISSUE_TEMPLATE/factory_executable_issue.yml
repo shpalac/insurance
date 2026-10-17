@@ -1,0 +1,21 @@
+name: Factory executable issue
+description: Scoped work item for an agent with verifiable acceptance
+labels: ["status:triage"]
+body:
+  - type: markdown
+    attributes:
+      value: "Validation workflow is planned in Phase 2. Until installed, this issue template does not confer 'ready' status."
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective and scope
+      description: Desired outcome and exact allowed/protected paths
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Runner-verifiable acceptance criteria
+      description: "Give AC-1, AC-2, etc. Each must have a deterministic hosted-runner test target and assertion."
+    validations:
+      required: true
