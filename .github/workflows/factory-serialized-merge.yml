@@ -1,0 +1,27 @@
+name: Factory serialized PR integrator
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_run:
+    workflows: ["Factory selective CI"]
+    types: [completed]
+permissions:
+  contents: read
+concurrency:
+  group: insurance-trusted-merge-integrator
+  cancel-in-progress: false
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout only trusted main source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Perform at most one guarded non-forced integration action
+        env:
+          FACTORY_INTEGRATOR_TOKEN: ${{ secrets.FACTORY_INTEGRATOR_TOKEN }}
+        run: python3 .factory/scripts/pr_merge_coordinator.py
