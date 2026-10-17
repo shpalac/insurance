@@ -1,0 +1,64 @@
+name: Issue acceptance (unprivileged)
+on:
+  workflow_call:
+    inputs:
+      issue_number:
+        type: number
+        required: true
+      head_sha:
+        type: string
+        required: true
+      criteria:
+        type: string
+        required: false
+permissions:
+  contents: read
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Install trusted validator dependencies
+        run: python3 -m pip install -r .factory/requirements-dev.txt
+      - name: Fetch GitHub issue body as untrusted data
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPOSITORY: ${{ github.repository }}
+          ISSUE: ${{ inputs.issue_number }}
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib, urllib.request
+          number = int(os.environ["ISSUE"])
+          url = f"https://api.github.com/repos/{os.environ['GH_REPOSITORY']}/issues/{number}"
+          request = urllib.request.Request(url, headers={
+              "Authorization": "Bearer " + os.environ["GH_TOKEN"],
+              "Accept": "application/vnd.github+json",
+          })
+          with urllib.request.urlopen(request, timeout=15) as response:
+              issue = json.load(response)
+          pathlib.Path("issue-body.md").write_text(issue.get("body") or "", encoding="utf-8")
+          PY
+      - name: Verify against reviewed registry without write credentials
+        env:
+          ISSUE: ${{ inputs.issue_number }}
+          HEAD_SHA: ${{ inputs.head_sha }}
+          CRITERIA: ${{ inputs.criteria }}
+        run: |
+          if [ -n "$CRITERIA" ]; then
+            python3 .factory/scripts/run_acceptance_manifest.py --issue-body issue-body.md --issue "$ISSUE" --head "$HEAD_SHA" --criteria "$CRITERIA" --output acceptance-report.md
+          else
+            python3 .factory/scripts/run_acceptance_manifest.py --issue-body issue-body.md --issue "$ISSUE" --head "$HEAD_SHA" --output acceptance-report.md
+          fi
+          cat acceptance-report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload trace report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: issue-acceptance-evidence
+          path: |
+            acceptance-report.md
+            reports/*.xml
+          if-no-files-found: ignore
