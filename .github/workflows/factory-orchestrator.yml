@@ -1,0 +1,29 @@
+name: Factory orchestration diagnostics
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+  issues:
+    types: [opened, edited, closed, reopened]
+  pull_request:
+    types: [opened, synchronize, closed, reopened]
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+concurrency:
+  group: factory-orchestrator-diagnostics
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - run: python3 -m pip install -r .factory/requirements-dev.txt
+      - name: Report queue without mutating anything
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 .factory/scripts/orchestrator_loop.py --dry-run
