@@ -24,7 +24,7 @@ SHA = re.compile(r"^[0-9a-f]{40}$")
 REF = re.compile(r"(?im)^\s*Refs\s+#([1-9][0-9]*)\s*$")
 COMPLETES = re.compile(r"(?im)^\s*Completes\s+#([1-9][0-9]*)\s*$")
 NATIVE_CLOSE = re.compile(
-    r"(?im)^\s*(?:Closes?|Fixes?|Resolves?)\s+#([1-9][0-9]*)\b"
+    r"(?im)^\s*(?:Close[sd]?|Fix(?:e[sd])?|Resolve[sd]?)\s+#([1-9][0-9]*)\b"
 )
 MAX_COMPLETES = 10
 
