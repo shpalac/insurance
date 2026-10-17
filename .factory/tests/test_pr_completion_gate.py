@@ -48,6 +48,16 @@ class CompletionGateTests(unittest.TestCase):
             "issue": 142, "criteria": ["AC-1", "AC-2"], "head_sha": SHA,
         }])
 
+    def test_future_issue_form_self_id_closes_without_manual_number_edit(self):
+        body = BODY.replace("issue_id: 142", 'issue_id: "self"')
+        result = preflight(
+            "Refs #142\nCompletes #142",
+            head_sha=SHA,
+            fetch_issue=lambda n: issue(body=body),
+            run=run_acceptance,
+        )
+        self.assertEqual(result[0]["criteria"], ["AC-1", "AC-2"])
+
     def test_native_github_close_keywords_rejected(self):
         for word in ("Closes", "Fixes", "Resolves", "Close", "Fix"):
             with self.subTest(word=word):
