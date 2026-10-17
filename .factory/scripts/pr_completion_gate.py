@@ -14,7 +14,6 @@ import os
 from pathlib import Path
 import re
 import sys
-from urllib import error, request
 
 from run_acceptance_manifest import AcceptanceError, run_criteria
 from validate_issue_manifest import extract_manifest, validate_body
@@ -98,22 +97,12 @@ def preflight(
     return reports
 
 
-def github_issue(repo: str, token: str, number: int) -> dict:
-    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo) or not token:
-        raise CompletionError("GitHub read-only API credentials unavailable")
-    req = request.Request(
-        f"https://api.github.com/repos/{repo}/issues/{number}",
-        headers={
-            "Authorization": "Bearer " + token,
-            "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28",
-        },
-    )
-    try:
-        with request.urlopen(req, timeout=20) as resp:
-            return json.load(resp)
-    except (error.HTTPError, error.URLError) as exc:
-        raise CompletionError(f"Unable to fetch Issue #{number}") from exc
+def supplied_issue(issues: dict, number: int) -> dict:
+    """Consume metadata captured by a separate read-only step."""
+    entry = issues.get(str(number))
+    if not isinstance(entry, dict) or entry.get("number") != number:
+        raise CompletionError(f"Trusted Issue payload absent for #{number}")
+    return entry
 
 
 def main() -> int:
@@ -131,11 +120,15 @@ def main() -> int:
         if not completes:
             print(f"Partial PR: {len(refs)} Refs declarations, no issue-closure claim")
             return 0
-        token = os.getenv("GH_TOKEN", "")
-        repo = os.getenv("GITHUB_REPOSITORY", "")
+        source = os.getenv("COMPLETION_ISSUES_PATH", "")
+        if not source:
+            raise CompletionError("Missing trusted Issue payload file")
+        issues = json.loads(Path(source).read_text(encoding="utf-8"))
+        if not isinstance(issues, dict):
+            raise CompletionError("Malformed Issue payload")
         reports = preflight(
             body, head_sha=head, root=ROOT,
-            fetch_issue=lambda n: github_issue(repo, token, n),
+            fetch_issue=lambda n: supplied_issue(issues, n),
         )
         summary = os.getenv("GITHUB_STEP_SUMMARY")
         if summary:
