@@ -140,8 +140,8 @@ def main(argv: list[str] | None = None) -> int:
     if issues:
         return 1
     print(
-        "STRUCTURAL OR LIVE-ARTIFACT PASS ONLY: GitHub CI, CI-only admission, "
-        "merge records and artifact SHAs still require independent online verification."
+        "STRUCTURAL OR LIVE-ARTIFACT PASS ONLY: full authenticated worker, "
+        "lease, merge and Issue-closure canary verification remains mandatory."
     )
     return 0
 
