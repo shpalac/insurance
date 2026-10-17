@@ -19,6 +19,7 @@ import re
 import sys
 
 from run_acceptance_manifest import AcceptanceError, load_targets, run_criteria
+from acceptance_discovery import DiscoveryError, available_criteria
 from validate_issue_manifest import extract_manifest, validate_body
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -101,18 +102,54 @@ def preflight(
             )
         manifest = extract_manifest(issue_body)
         expected = [ac["id"] for ac in manifest["acceptance_criteria"]]
-        registered = all(
-            isinstance(targets.get(f"{number}/{criterion}"), dict)
-            for criterion in expected
-        )
+        try:
+            coverage = available_criteria(root, number, expected, targets)
+        except DiscoveryError as exc:
+            raise CompletionError(
+                f"Issue #{number}: invalid co-shipped acceptance: {exc}"
+            ) from exc
+        registered = len(coverage) == len(expected)
         if not registered and number not in completes:
             if not manifest["dependencies"]["multi_pr_allowed"]:
                 raise CompletionError(
                     f"Issue #{number} is single-PR: all acceptance targets "
-                    "must be registered and verified before merging"
+                    "must be implemented and verified before merging"
                 )
-            # An incomplete multi-PR slice may merge; the main verifier will
-            # retain its parent Issue open and record missing acceptance.
+            # Multi-PR work may land incrementally. But tests already shipped
+            # with the implementation must actually pass at the candidate SHA.
+            # Legacy incomplete registry entries are skipped during migration.
+            partial = {
+                criterion for criterion in expected
+                if coverage.get(criterion) == "co-shipped"
+            }
+            if partial:
+                try:
+                    partial_rows = run(
+                        issue_body, issue_id=number, head_sha=head_sha,
+                        root=root, criteria_subset=partial,
+                    )
+                except (AcceptanceError, OSError) as exc:
+                    raise CompletionError(
+                        f"Issue #{number}: partial acceptance failed "
+                        f"({type(exc).__name__})"
+                    ) from exc
+                if ([row.get("id") for row in partial_rows]
+                        != [ac for ac in expected if ac in partial]
+                        or any(
+                            row.get("status") != "PASS"
+                            or row.get("head_sha") != head_sha
+                            or row.get("assertions", 0) < 1
+                            or row.get("testcases", 0) < 1
+                            for row in partial_rows
+                        )):
+                    raise CompletionError(
+                        f"Issue #{number}: incomplete or failed partial evidence"
+                    )
+                reports.append({
+                    "issue": number, "partial_criteria": sorted(partial),
+                    "head_sha": head_sha, "complete": False,
+                })
+            # Post-merge verification intentionally keeps the parent open.
             continue
 
         # When the registry becomes complete, there is no manual "finishing
@@ -181,10 +218,11 @@ def main() -> int:
             with open(summary, "a", encoding="utf-8") as handle:
                 handle.write("### Verified PR completion promises\n")
                 for report in reports:
+                    ids = report.get("criteria") or report.get("partial_criteria", [])
+                    stage = "complete" if "criteria" in report else "partial"
                     handle.write(
-                        f"- Issue #{report['issue']}: "
-                        f"{len(report['criteria'])} verified acceptance criteria "
-                        f"at \u0060{head}\u0060\n"
+                        f"- Issue #{report['issue']}: {stage}, "
+                        f"{len(ids)} verified acceptance criteria at `{head}`\\n"
                     )
         print(f"Automatically verified {len(reports)} fully accepted issue(s) at {head}")
         return 0

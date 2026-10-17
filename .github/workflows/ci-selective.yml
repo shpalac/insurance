@@ -56,6 +56,8 @@ jobs:
         run: |
           python3 .factory/scripts/validate_config.py
           python3 -m unittest discover -s .factory/tests -v
+      - name: Execute all durable Issue acceptance regressions
+        run: python3 .factory/scripts/run_permanent_acceptance.py
   scanner:
     needs: [impact]
     if: fromJSON(needs.impact.outputs.manifest).selected_jobs.scanner
