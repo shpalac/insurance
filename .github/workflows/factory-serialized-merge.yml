@@ -21,7 +21,10 @@ jobs:
         with:
           ref: main
           persist-credentials: false
+      - name: Install trusted factory schema dependency
+        run: python3 -m pip install -r .factory/requirements-dev.txt
       - name: Perform at most one guarded non-forced integration action
         env:
           FACTORY_INTEGRATOR_TOKEN: ${{ secrets.FACTORY_INTEGRATOR_TOKEN }}
+          FACTORY_INTEGRATOR_LOGIN: ${{ vars.FACTORY_INTEGRATOR_LOGIN }}
         run: python3 .factory/scripts/pr_merge_coordinator.py
