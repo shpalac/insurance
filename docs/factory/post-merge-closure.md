@@ -45,3 +45,9 @@ Every `pull_request` runs a dedicated `issue-completion` CI job as a mandatory u
 **Repository branch protection matters:** configure a ruleset requiring `factory-gate-preflight`, `factory-bootstrap-gate` and `unit-tests` before allowing merges. Without a required-check ruleset, GitHub can permit an owner to merge a failing PR; the completion system will still refuse to close it, but cannot prevent an unsafe merge. CI-only review policy does not disable these checks.
 
 Older Issues #2–#8 are **migration work**, not automatic green results. Each must receive a structured manifest, verified trusted test targets, and remaining missing features before close. Do not change the meaning of existing ACs just to turn their Issues green.
+
+## PR acceptance traceability
+
+The trusted `Factory PR acceptance traceability` workflow reacts only to successful pull-request `Factory selective CI` runs. It fetches the associated check-run jobs, verifies the PR's current head SHA, and posts/updates a single bot-owned acceptance comment listing each criterion, trusted target identity, requested runner, PR-gate result and immutable CI run URL. A partial PR is marked PARTIAL, never PASS. The privileged publisher checks out `main` only, cannot execute fork/PR code, and is not an alternative source of closure authority; `post_merge_closure.py` independently reruns all targets on `main`.
+
+PR-body edits trigger CI again so a stale green check cannot be reused to add or remove a completion claim.
