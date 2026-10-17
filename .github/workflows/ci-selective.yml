@@ -1,0 +1,121 @@
+name: Factory selective CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: factory-selective-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  impact:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      manifest: ${{ steps.compute.outputs.manifest }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: compute
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          python3 .factory/scripts/compute_impact.py --base "$BASE_SHA" --head "$HEAD_SHA" --output "$GITHUB_OUTPUT"
+  policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Check patch whitespace
+        run: git diff --check
+      - name: Install policy dependencies
+        run: python3 -m pip install -r .factory/requirements-dev.txt
+      - name: Run policy tests
+        run: |
+          python3 .factory/scripts/validate_config.py
+          python3 -m unittest discover -s .factory/tests -v
+  scanner:
+    needs: [impact]
+    if: fromJSON(needs.impact.outputs.manifest).selected_jobs.scanner
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - run: |
+          python -m pip install -e .
+          python -m unittest discover -s tests -v
+          insurance --help
+  factory:
+    needs: [impact]
+    if: fromJSON(needs.impact.outputs.manifest).selected_jobs.factory
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - run: |
+          python3 -m pip install -r .factory/requirements-dev.txt
+          python3 -m unittest discover -s .factory/tests -v
+  docs:
+    needs: [impact]
+    if: fromJSON(needs.impact.outputs.manifest).selected_jobs.docs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - run: python3 .factory/scripts/validate_docs.py
+  macos:
+    needs: [impact]
+    if: fromJSON(needs.impact.outputs.manifest).selected_jobs.macos
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - run: |
+          python3 -m pip install -e . -r .factory/requirements-dev.txt
+          python3 -m unittest discover -s tests -v
+          python3 -m unittest discover -s .factory/tests -v
+  windows:
+    needs: [impact]
+    if: fromJSON(needs.impact.outputs.manifest).selected_jobs.windows
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.12'
+      - run: |
+          python -m pip install -e . -r .factory/requirements-dev.txt
+          python -m unittest discover -s tests -v
+          python -m unittest discover -s .factory/tests -v
+  factory-gate:
+    if: always()
+    needs: [impact, policy, scanner, factory, docs, macos, windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Verify aggregate gate
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          IMPACT_MANIFEST: ${{ needs.impact.outputs.manifest }}
+          RESULT_IMPACT: ${{ needs.impact.result }}
+          RESULT_POLICY: ${{ needs.policy.result }}
+          RESULT_SCANNER: ${{ needs.scanner.result }}
+          RESULT_FACTORY: ${{ needs.factory.result }}
+          RESULT_DOCS: ${{ needs.docs.result }}
+          RESULT_MACOS: ${{ needs.macos.result }}
+          RESULT_WINDOWS: ${{ needs.windows.result }}
+        run: python3 .factory/scripts/verify_factory_gate.py
