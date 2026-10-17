@@ -76,6 +76,7 @@ class API:
                               headers={
                                   "Authorization": "Bearer " + self.token,
                                   "Accept": "application/vnd.github+json",
+                                  "Content-Type": "application/json",
                                   "X-GitHub-Api-Version": "2022-11-28",
                               })
         with request.urlopen(req, timeout=25) as response:
