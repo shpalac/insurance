@@ -31,11 +31,17 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Check patch whitespace
         run: git diff --check
       - name: Install policy dependencies
         run: python3 -m pip install -r .factory/requirements-dev.txt
+      - name: Run mandatory secret and pinned-workflow checks
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python3 .factory/scripts/scan_security.py --base "$BASE_SHA" --head "$HEAD_SHA"
       - name: Run policy tests
         run: |
           python3 .factory/scripts/validate_config.py
