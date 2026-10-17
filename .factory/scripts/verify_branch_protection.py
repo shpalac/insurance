@@ -58,6 +58,32 @@ def audit(rules: list[dict] | None, protection: dict | None) -> list[str]:
     return ["main does not independently enforce all required CI checks"]
 
 
+def branch_protected(branch: dict | None) -> bool:
+    """The branch itself must be protected, not merely advertise contexts."""
+    return isinstance(branch, dict) and branch.get("protected") is True
+
+
+def remediation(repo: str, errors: list[str], *, protected: bool) -> str:
+    """Human-readable blocked owner action with no false green claims."""
+    status = "PASS" if not errors and protected else "BLOCKED: OWNER ACTION REQUIRED"
+    lines = [
+        f"### Factory main branch enforcement: {status}",
+        f"Repository: {repo}",
+        "Required: " + ", ".join(sorted(REQUIRED)),
+    ]
+    if not protected:
+        lines.append("The GitHub main branch is NOT protected.")
+    lines.extend("Failure: " + line for line in errors)
+    if errors or not protected:
+        lines.extend([
+            f"Configure actual enforcement at https://github.com/{repo}/settings/rules",
+            "Choose target main; require all three named successful status checks.",
+            "Independent reviewer approval remains optional; do not bypass CI.",
+            "Rerun Factory branch protection audit to capture authoritative evidence.",
+        ])
+    return "\\n".join(lines) + "\\n"
+
+
 def main() -> int:
     repo = os.getenv("GITHUB_REPOSITORY", "")
     token = os.getenv("GH_TOKEN", "")
@@ -78,9 +104,23 @@ def main() -> int:
         except (error.HTTPError, error.URLError):
             return None
 
+    branch = fetch("/branches/main")
     effective = fetch("/rules/branches/main")
     legacy = fetch("/branches/main/protection")
     errors = audit(effective, legacy)
+    if not branch_protected(branch):
+        errors.append("main branch API says protected=false or is unavailable")
+    report = remediation(repo, errors, protected=branch_protected(branch))
+    print(report)
+    summary = os.getenv("GITHUB_STEP_SUMMARY")
+    if summary:
+        with open(summary, "a", encoding="utf-8") as out:
+            out.write(report)
+    os.makedirs("reports", exist_ok=True)
+    with open("reports/main-branch-enforcement.json", "w", encoding="utf-8") as out:
+        json.dump({"repo": repo, "protected": branch_protected(branch),
+                   "required_checks": sorted(REQUIRED), "errors": errors}, out,
+                  sort_keys=True, indent=2)
     if errors:
         for item in errors:
             print("ERROR:", item, file=sys.stderr)
