@@ -43,9 +43,10 @@ class Acceptance(unittest.TestCase):
                          ttl=timedelta(minutes=30))
         resumed_plan = plan_next(items, store.read_all(), now=now,
                                  max_concurrent=2)
-        self.assertEqual(resumed_plan["issue"], 45)
-        self.assertEqual(resumed_plan["role"], "planner")
-        self.assertIsNone(plan_next(items, store.read_all(), now=now,
+        self.assertEqual(resumed_plan["issue"], 46)
+        self.assertTrue(resumed_plan["resume"])
+        self.assertEqual(resumed_plan["role"], "ci-engineer")
+        self.assertIsNone(plan_next([items[0]], store.read_all(), now=now,
                                     max_concurrent=1))
 
         complete(store, entity=46, epoch=active.epoch, owner=active.owner,
