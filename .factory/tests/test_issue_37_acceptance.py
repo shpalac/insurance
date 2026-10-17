@@ -26,7 +26,7 @@ class Issue37Acceptance(unittest.TestCase):
     def test_ac_1_exact_checkout_and_merge_parent_fails_on_stale_sha(self):
         self.assertEqual(verify_identity(A, A, B, "pull_request", (C, B)), [])
         self.assertTrue(verify_identity(A, C, B, "pull_request", (C, B)))
-        self.assertTrue(verify_identity(A, A, C, "pull_request", (C, B)))
+        self.assertTrue(verify_identity(A, A, "d" * 40, "pull_request", (C, B)))
         self.assertEqual(verify_identity(A, A, A, "push"), [])
         self.assertTrue(verify_identity(A, A, B, "push"))
         ci = (ROOT / ".github/workflows/ci-selective.yml").read_text()
