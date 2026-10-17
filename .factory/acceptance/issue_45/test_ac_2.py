@@ -10,7 +10,7 @@ sys.path.insert(0, str(ROOT / ".factory/scripts"))
 from agent_dispatch_contract import build_envelope
 from github_ref_leases import deserialize, serialize
 from lease_state import (
-    InMemoryLeaseStore, LeaseConflict, StaleLease, acquire, checkpoint, complete,
+    InMemoryLeaseStore, LeaseConflict, StaleLease, acquire, checkpoint, complete, heartbeat,
 )
 
 SHA = "a" * 40
@@ -35,27 +35,39 @@ class Acceptance(unittest.TestCase):
             branch="factory/issue-45-worker", sha=SHA, diff="initial safe patch",
         )
 
+        before_heartbeat = build_envelope(
+            lease=saved, authenticated_login="approved-worker",
+            expected_role="developer", approved_logins={"approved-worker"},
+            now=now + timedelta(seconds=30),
+        )
+        renewed = heartbeat(
+            store, entity=45, epoch=saved.epoch, owner=saved.owner,
+            now=now + timedelta(minutes=1), ttl=timedelta(minutes=30),
+        )
+
         # Simulate a new controller process loading the exact durable snapshot.
         restored = deserialize(serialize(store.read(45)))
-        self.assertEqual(restored.revision, saved.revision)
+        self.assertEqual(restored.revision, renewed.revision)
         self.assertEqual(restored.epoch, saved.epoch)
         self.assertEqual(restored.branch, "factory/issue-45-worker")
         self.assertEqual(restored.commit_sha, SHA)
         envelope = build_envelope(
             lease=restored, authenticated_login="approved-worker",
             expected_role="developer", approved_logins={"approved-worker"},
-            now=now + timedelta(minutes=1),
+            now=now + timedelta(minutes=2),
         )
         self.assertEqual(envelope.checkpoint, SHA)
         self.assertEqual(envelope.branch, "factory/issue-45-worker")
         self.assertEqual(envelope.commit_sha, SHA)
+        self.assertEqual(envelope.idempotency_key, before_heartbeat.idempotency_key)
+        self.assertGreater(envelope.revision, before_heartbeat.revision)
         with self.assertRaises(LeaseConflict):
             acquire(store, entity=45, owner="second-worker", role="developer",
-                    now=now + timedelta(minutes=1), ttl=timedelta(minutes=30))
+                    now=now + timedelta(minutes=2), ttl=timedelta(minutes=30))
 
         finished = complete(
             store, entity=45, epoch=saved.epoch, owner=saved.owner,
-            now=now + timedelta(minutes=2),
+            now=now + timedelta(minutes=3),
         )
         self.assertEqual(finished.phase, "completed")
         self.assertEqual(store.read_all()[45].phase, "completed")
