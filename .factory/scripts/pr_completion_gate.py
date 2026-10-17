@@ -58,7 +58,26 @@ def preflight(
     """Evaluate complete-issue claims against every acceptance criterion."""
     if not isinstance(head_sha, str) or not SHA.fullmatch(head_sha):
         raise CompletionError("Missing immutable PR head SHA")
-    _, completes = parse_intent(body)
+    refs, completes = parse_intent(body)
+    # A single-PR Issue must never accept a partial merge. The Issue metadata
+    # is captured in a separate read-only step and treated as untrusted data.
+    for number in refs:
+        issue = fetch_issue(number)
+        if (not isinstance(issue, dict) or issue.get("number") != number
+                or issue.get("state") != "open" or "pull_request" in issue):
+            raise CompletionError(f"Linked Issue #{number} is missing or not open")
+        if number not in completes:
+            errors = validate_body(
+                issue.get("body") or "", root=root, expected_issue_id=number
+            )
+            if errors:
+                raise CompletionError(f"Partial Issue #{number} lacks valid manifest")
+            manifest = extract_manifest(issue["body"])
+            if manifest["dependencies"]["multi_pr_allowed"] is not True:
+                raise CompletionError(
+                    f"Issue #{number} is single-PR: add Completes #{number} "
+                    "and verify all ACs before merging"
+                )
     reports = []
     for number in completes:
         issue = fetch_issue(number)
@@ -117,8 +136,8 @@ def main() -> int:
         body = pr.get("body") or ""
         head = pr["head"]["sha"]
         refs, completes = parse_intent(body)
-        if not completes:
-            print(f"Partial PR: {len(refs)} Refs declarations, no issue-closure claim")
+        if not refs:
+            print("No linked Issue declarations; no completion promise")
             return 0
         source = os.getenv("COMPLETION_ISSUES_PATH", "")
         if not source:
