@@ -218,10 +218,11 @@ def main() -> int:
             with open(summary, "a", encoding="utf-8") as handle:
                 handle.write("### Verified PR completion promises\n")
                 for report in reports:
+                    ids = report.get("criteria") or report.get("partial_criteria", [])
+                    stage = "complete" if "criteria" in report else "partial"
                     handle.write(
-                        f"- Issue #{report['issue']}: "
-                        f"{len(report['criteria'])} verified acceptance criteria "
-                        f"at \u0060{head}\u0060\n"
+                        f"- Issue #{report['issue']}: {stage}, "
+                        f"{len(ids)} verified acceptance criteria at `{head}`\\n"
                     )
         print(f"Automatically verified {len(reports)} fully accepted issue(s) at {head}")
         return 0
