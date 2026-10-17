@@ -31,7 +31,7 @@ Issue authors should express observable outcomes, not test runner commands. The 
 - Test discovery rejects symlinks/unsafe paths, unrecognized method names, missing runtime assertions, and mismatched reports; verified evidence is bound to the tested SHA.
 - Existing shared legacy unittest targets execute **once per unique command**, not once per criterion. Each AC still requires its own JUnit report. New co-shipped tests execute one file per criterion with bounded timeout.
 - The permanent acceptance runner scans ordinary `issue_N/test_ac_K.py` files rather than using a hardcoded list. GitHub CI is the source of truth.
-- Hosted Ubuntu is currently the co-shipped default; a macOS/Windows-only criterion requires a corresponding trusted runner proof before closure. External service credentials, branch protection settings, and autonomous worker dispatch must be configured separately; the factory fails closed instead of fabricating success.
+- Hosted Ubuntu remains the co-shipped default; macOS and Windows criteria execute on their actual hosted runners. JUnit reports and assertion counts are packaged with digest-indexed, exact-SHA artifacts. The post-merge verifier independently downloads and checks those artifacts against the same successful `main` CI run before closing an issue. External service credentials, branch protection settings, and autonomous worker dispatch must be configured separately; the factory fails closed instead of fabricating success.
 
 ## Example
 
