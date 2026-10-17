@@ -120,7 +120,7 @@ def normalized_diff_hash(diff: str) -> str:
     if not isinstance(diff, str) or not diff.strip():
         raise RepairDenied("Missing actual normalized diff")
     return hashlib.sha256("\n".join(
-        line.rstrip() for line in diff.replace("\r\n", "\n").split("\n")
+        line.strip() for line in diff.replace("\r\n", "\n").split("\n")
         if line.strip()
     ).encode()).hexdigest()
 
