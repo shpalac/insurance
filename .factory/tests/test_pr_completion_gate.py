@@ -153,7 +153,7 @@ class CompletionGateTests(unittest.TestCase):
             event = Path(tmp) / "event.json"
             event.write_text(json.dumps({
                 "pull_request": {
-                    "body": "Refs #142\\nCompletes #142",
+                    "body": "Refs #142\nCompletes #142",
                     "head": {"sha": SHA},
                 }
             }))
