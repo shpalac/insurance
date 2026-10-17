@@ -4,6 +4,8 @@ on:
     workflows: ["Factory selective CI"]
     types: [completed]
     branches: [main]
+  issues:
+    types: [edited]
   workflow_dispatch:
   schedule:
     - cron: "17 * * * *"
@@ -18,10 +20,14 @@ concurrency:
 jobs:
   verify:
     if: >-
-      github.event_name != 'workflow_run' ||
-      (github.event.workflow_run.conclusion == 'success' &&
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.event == 'push' &&
-       github.event.workflow_run.head_branch == 'main')
+       github.event.workflow_run.head_branch == 'main') ||
+      (github.event_name == 'issues' &&
+       github.actor == github.repository_owner) ||
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:
