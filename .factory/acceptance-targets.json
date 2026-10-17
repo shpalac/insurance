@@ -1,4 +1,18 @@
 {
   "schema_version": "1.0",
-  "targets": {}
+  "targets": {
+    "18/AC-1": {
+      "runner_os": "ubuntu-latest",
+      "argv": [
+        "python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_factory_closure_canary.py"
+      ]
+    }
+  }
 }
