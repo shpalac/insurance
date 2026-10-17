@@ -1,0 +1,39 @@
+name: Factory agent dispatch
+on:
+  workflow_run:
+    workflows: ["Factory orchestration diagnostics"]
+    types: [completed]
+permissions:
+  contents: read
+concurrency:
+  group: insurance-factory-agent-dispatch
+  cancel-in-progress: false
+jobs:
+  dispatch:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      (github.event.workflow_run.event == 'issues' ||
+       github.event.workflow_run.event == 'schedule')
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    steps:
+      - name: Checkout trusted main only
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Install trusted controller dependencies
+        run: python3 -m pip install -r .factory/requirements-dev.txt
+      - name: Claim one eligible task and dispatch through the configured gateway
+        env:
+          FACTORY_AGENT_DISPATCH_ENABLED: ${{ vars.FACTORY_AGENT_DISPATCH_ENABLED || 'false' }}
+          FACTORY_AGENT_DISPATCH_APP_TOKEN: ${{ secrets.FACTORY_AGENT_DISPATCH_APP_TOKEN }}
+          FACTORY_AGENT_PROVIDER: ${{ vars.FACTORY_AGENT_PROVIDER || '' }}
+          FACTORY_AGENT_ENDPOINT: ${{ secrets.FACTORY_AGENT_ENDPOINT }}
+          FACTORY_AGENT_LOGIN: ${{ vars.FACTORY_AGENT_LOGIN || '' }}
+        run: python3 .factory/scripts/agent_dispatch.py
