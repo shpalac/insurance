@@ -6,7 +6,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / ".factory/scripts"))
-from verify_canary_evidence import STEPS, validate_proof  # noqa: E402
+from verify_canary_evidence import STEPS, validate_proof, verify_online  # noqa: E402
 
 REPO = "shpalac/insurance"
 SHA = "a" * 40
@@ -51,7 +51,7 @@ class CanaryEvidenceTests(unittest.TestCase):
 
     def test_false_success_rejected(self):
         candidate = proof()
-        candidate["steps"]["independent_review"]["result"] = "skipped"
+        candidate["steps"]["ci_only_admission"]["result"] = "skipped"
         self.assertTrue(validate_proof(candidate, repository=REPO))
 
     def test_wrong_repository_rejected(self):
@@ -63,6 +63,44 @@ class CanaryEvidenceTests(unittest.TestCase):
         candidate = proof()
         candidate["steps"]["merged"]["workflow_run_url"] = "https://evil.invalid/run/2"
         self.assertTrue(validate_proof(candidate, repository=REPO))
+
+    def test_real_online_run_and_digest_can_be_verified(self):
+        evidence = proof()
+        def fetch(path):
+            if path == "/git/ref/heads/main":
+                return {"object": {"sha": SHA}}
+            if path == "/actions/runs/123":
+                return {
+                    "head_sha": SHA, "status": "completed", "conclusion": "success"
+                }
+            if path == "/actions/runs/123/artifacts":
+                return {"total_count": 1, "artifacts": [
+                    {"digest": "sha256:" + "b" * 64, "expired": False}
+                ]}
+            raise AssertionError("Unexpected URL: " + path)
+        self.assertEqual(verify_online(evidence, repository=REPO, fetch=fetch), [])
+
+    def test_online_digest_must_exist_and_be_unexpired(self):
+        evidence = proof()
+        def fetch(path):
+            if path == "/git/ref/heads/main":
+                return {"object": {"sha": SHA}}
+            if path.startswith("/actions/runs/") and path.endswith("/artifacts"):
+                return {"total_count": 1, "artifacts": [
+                    {"digest": "sha256:" + "c" * 64, "expired": True}
+                ]}
+            return {"head_sha": SHA, "status": "completed", "conclusion": "success"}
+        self.assertTrue(verify_online(evidence, repository=REPO, fetch=fetch))
+
+    def test_online_main_sha_and_run_head_mismatches_block(self):
+        evidence = proof()
+        def fetch(path):
+            if path == "/git/ref/heads/main":
+                return {"object": {"sha": "c" * 40}}
+            if path.startswith("/actions/runs/"):
+                return {"head_sha": "d" * 40, "status": "completed", "conclusion": "success"}
+            raise AssertionError(path)
+        self.assertTrue(verify_online(evidence, repository=REPO, fetch=fetch))
 
     def test_missing_artifact_hash_rejected(self):
         candidate = proof()
