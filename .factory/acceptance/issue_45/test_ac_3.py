@@ -8,13 +8,13 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / ".factory/scripts"))
 from lease_state import InMemoryLeaseStore, acquire, complete
-from orchestrator_loop import plan_next, prioritize
+from orchestrator_loop import classify_pull_request, plan_next, prioritize
 
 def emit():
     path = ROOT / "reports" / "ac-3.xml"
     path.parent.mkdir(parents=True, exist_ok=True)
     suite = ET.Element("testsuite", tests="1", failures="0", errors="0",
-                       skipped="0", assertions="21")
+                       skipped="0", assertions="26")
     ET.SubElement(suite, "testcase", classname="Issue45AC3",
                   name="test_ac_3_queue_prioritizes_failures_and_advances")
     ET.ElementTree(suite).write(path, encoding="utf-8", xml_declaration=True)
@@ -34,6 +34,19 @@ class Acceptance(unittest.TestCase):
         ]
         ordered = prioritize(items)
         self.assertEqual(ordered[0]["kind"], "failing-pr")
+        self.assertEqual(
+            classify_pull_request(
+                {"mergeable_state": "clean"},
+                [{"status": "completed", "conclusion": "failure"}], set(),
+            ),
+            "failing-pr",
+        )
+        self.assertEqual(
+            classify_pull_request(
+                {"mergeable_state": "dirty"}, [], set()
+            ),
+            "merge-blocker",
+        )
         plan = plan_next(items, {}, now=now, max_concurrent=2)
         self.assertEqual(plan["issue"], 46)
         self.assertEqual(plan["source_number"], 82)
@@ -63,6 +76,9 @@ class Acceptance(unittest.TestCase):
         dispatch_workflow = (ROOT / ".github/workflows/factory-agent-dispatch.yml").read_text()
         diagnostics_workflow = (ROOT / ".github/workflows/factory-orchestrator.yml").read_text()
         self.assertIn("workflow_run:", dispatch_workflow)
+        self.assertIn("Factory selective CI", dispatch_workflow)
+        self.assertIn("github.event.workflow_run.conclusion == 'failure'", dispatch_workflow)
+        self.assertIn("head_repository.full_name == github.repository", dispatch_workflow)
         self.assertIn("github.event.workflow_run.event == 'issues'", dispatch_workflow)
         self.assertIn("github.event.workflow_run.event == 'schedule'", dispatch_workflow)
         self.assertIn("ref: main", dispatch_workflow)
