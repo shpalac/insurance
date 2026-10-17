@@ -14,6 +14,7 @@ from lease_state import (
 )
 
 SHA = "a" * 40
+UPDATED_SHA = "b" * 40
 
 def emit():
     path = ROOT / "reports" / "ac-2.xml"
@@ -44,19 +45,25 @@ class Acceptance(unittest.TestCase):
             store, entity=45, epoch=saved.epoch, owner=saved.owner,
             now=now + timedelta(minutes=1), ttl=timedelta(minutes=30),
         )
+        checkpointed = checkpoint(
+            store, entity=45, epoch=saved.epoch, owner=saved.owner,
+            now=now + timedelta(minutes=1, seconds=30),
+            branch="factory/issue-45-worker", sha=UPDATED_SHA,
+            diff="second safe patch",
+        )
 
         # Simulate a new controller process loading the exact durable snapshot.
         restored = deserialize(serialize(store.read(45)))
-        self.assertEqual(restored.revision, renewed.revision)
+        self.assertEqual(restored.revision, checkpointed.revision)
         self.assertEqual(restored.epoch, saved.epoch)
         self.assertEqual(restored.branch, "factory/issue-45-worker")
-        self.assertEqual(restored.commit_sha, SHA)
+        self.assertEqual(restored.commit_sha, UPDATED_SHA)
         envelope = build_envelope(
             lease=restored, authenticated_login="approved-worker",
             expected_role="developer", approved_logins={"approved-worker"},
             now=now + timedelta(minutes=2),
         )
-        self.assertEqual(envelope.checkpoint, SHA)
+        self.assertEqual(envelope.checkpoint, UPDATED_SHA)
         self.assertEqual(envelope.branch, "factory/issue-45-worker")
         self.assertEqual(envelope.commit_sha, SHA)
         self.assertEqual(envelope.idempotency_key, before_heartbeat.idempotency_key)
