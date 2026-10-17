@@ -1,0 +1,85 @@
+name: Factory verified issue closure
+on:
+  workflow_run:
+    workflows: ["Factory selective CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "17 * * * *"
+
+# Writes are isolated from untrusted acceptance-test execution.
+permissions:
+  contents: read
+concurrency:
+  group: insurance-verified-issue-closure
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      checks: read
+      issues: read
+      pull-requests: read
+      actions: read
+    outputs:
+      proof: ${{ steps.prove.outputs.proof }}
+    steps:
+      - name: Checkout trusted main without persisted credentials
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Install validation dependencies
+        run: python3 -m pip install -r .factory/requirements-dev.txt
+      - name: Verify all executable acceptance criteria on main
+        id: prove
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MAIN_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          python3 .factory/scripts/post_merge_closure.py prepare --sha "$MAIN_SHA" --output factory-closure-plan.json
+      - name: Preserve acceptance reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: factory-closure-proof
+          path: |
+            factory-closure-plan.json
+            reports/*.xml
+          if-no-files-found: ignore
+          retention-days: 30
+
+  close:
+    needs: [verify]
+    if: needs.verify.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      checks: read
+      issues: write
+      pull-requests: read
+    steps:
+      - name: Checkout trusted main without persisted credentials
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Install schema dependencies
+        run: python3 -m pip install -r .factory/requirements-dev.txt
+      - name: Apply verified audit and close only fully complete Issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MAIN_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+          CLOSURE_PROOF: ${{ needs.verify.outputs.proof }}
+        run: |
+          python3 .factory/scripts/post_merge_closure.py apply --sha "$MAIN_SHA"
