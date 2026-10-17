@@ -48,17 +48,35 @@ def plan_next(
         raise ValueError("Invalid queue planning context")
     active = {
         number: lease for number, lease in leases.items()
-        if lease.expires_at > now and lease.phase not in {"blocked", "completed", "cancelled"}
+        if lease.expires_at > now
+        and lease.phase not in {"blocked", "completed", "cancelled"}
     }
-    if len(active) >= max_concurrent:
-        return None
     roles = {
         "main-regression": "ci-engineer",
         "merge-blocker": "integrator",
         "failing-pr": "ci-engineer",
         "ready-issue": "planner",
     }
-    for item in prioritize(items):
+    ordered = prioritize(items)
+    # Re-deliver the same active lease/checkpoint first. The backend's stable
+    # idempotency key must resume the existing worker, never create a duplicate.
+    for item in ordered:
+        kind = item.get("kind")
+        issue = item.get("linked_issue")
+        if (kind not in roles or type(issue) is not int or issue < 1
+                or issue not in active):
+            continue
+        lease = active[issue]
+        if lease.phase not in {"claimed", "repairing"}:
+            continue
+        return {
+            "issue": issue, "source_number": item.get("number"),
+            "kind": kind, "role": lease.role,
+            "resume": True, "reason": "resume_durable_lease",
+        }
+    if len(active) >= max_concurrent:
+        return None
+    for item in ordered:
         kind = item.get("kind")
         if kind not in roles:
             continue
@@ -70,6 +88,7 @@ def plan_next(
             "source_number": item.get("number"),
             "kind": kind,
             "role": roles[kind],
+            "resume": False,
             "reason": "priority_queue_eligible",
         }
     return None
