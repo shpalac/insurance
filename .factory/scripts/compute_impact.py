@@ -15,12 +15,15 @@ JOBS = ("scanner", "factory", "docs", "macos", "windows")
 GLOBAL_NAMES = {"pyproject.toml", "AGENTS.md", "SECURITY.md", ".gitignore"}
 GLOBAL_PREFIXES = (".github/", ".factory/", "requirements", "setup.")
 DOC_NAMES = {"README.md", "CONTRIBUTING.md", "LICENSE"}
+RUNNER_JOBS = {"ubuntu-latest": (), "macos-latest": ("macos",), "windows-latest": ("windows",)}
 
 
-def impacted(files: list[str], head_sha: str) -> dict:
+def impacted(files: list[str], head_sha: str, requested_runners: tuple[str, ...] = ()) -> dict:
     """Unknown paths, empty change lists and control-plane edits fail closed."""
     if not SHA.fullmatch(head_sha):
         raise ValueError("Expected an exact 40-character Git commit SHA")
+    if any(runner not in RUNNER_JOBS for runner in requested_runners):
+        raise ValueError("Unapproved requested CI runner")
     selected = dict.fromkeys(JOBS, False)
     reason = "affected_modules"
     for raw in files:
@@ -51,12 +54,16 @@ def impacted(files: list[str], head_sha: str) -> dict:
         selected = dict.fromkeys(JOBS, True)
     if not any(selected.values()):
         selected["docs"] = True
+    for runner in requested_runners:
+        for job in RUNNER_JOBS[runner]:
+            selected[job] = True
     body = {
         "schema_version": "1.0",
         "head_sha": head_sha,
         "selected_jobs": selected,
         "reason": reason,
         "changed_paths": sorted(set(files)),
+        "requested_runners": sorted(set(requested_runners)),
     }
     digest = hashlib.sha256(
         json.dumps(body, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -79,8 +86,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--base", required=True)
     parser.add_argument("--head", required=True)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--runner", choices=tuple(RUNNER_JOBS), action="append", default=[])
     args = parser.parse_args(argv)
-    result = impacted(git_changed_paths(args.base, args.head), args.head)
+    result = impacted(git_changed_paths(args.base, args.head), args.head, tuple(args.runner))
     value = json.dumps(result, sort_keys=True, separators=(",", ":"))
     print(value)
     if args.output:
