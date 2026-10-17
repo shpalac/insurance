@@ -68,6 +68,18 @@ class DiscoveryAcceptance(unittest.TestCase):
                 {"AC-1": "reviewed"}
             )
 
+    def test_ac_1_symlinked_acceptance_directory_is_rejected(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder) / "checkout"
+            (root / ".factory").mkdir(parents=True)
+            outside = Path(folder) / "outside"
+            outside.mkdir()
+            (root / ".factory" / "acceptance").symlink_to(
+                outside, target_is_directory=True
+            )
+            with self.assertRaises(DiscoveryError):
+                named_path(root, 938, "AC-1")
+
 
 if __name__ == "__main__":
     unittest.main()
