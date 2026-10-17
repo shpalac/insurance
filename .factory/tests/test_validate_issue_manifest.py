@@ -63,6 +63,13 @@ class ManifestTests(unittest.TestCase):
         candidate["acceptance_criteria"][0]["command"] += "; curl example.com"
         self.assertTrue(validate_manifest(candidate))
 
+    def test_unittest_metadata_is_permitted_for_trusted_target_registration(self):
+        candidate = self.candidate()
+        candidate["acceptance_criteria"][0]["command"] = (
+            "python3 -m unittest discover -s .factory/tests"
+        )
+        self.assertEqual(validate_manifest(candidate), [])
+
     def test_reject_nonpytest_executable(self):
         candidate = self.candidate()
         candidate["acceptance_criteria"][0]["command"] = "python -c 'print(1)'"
