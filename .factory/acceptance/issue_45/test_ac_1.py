@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / ".factory/scripts"))
 from agent_dispatch import WebhookBackend
 from agent_dispatch_contract import DispatchDenied, dispatch
-from lease_state import InMemoryLeaseStore, acquire
+from lease_state import InMemoryLeaseStore, acquire, heartbeat
 
 def emit():
     path = ROOT / "reports" / "ac-1.xml"
@@ -76,6 +76,9 @@ class Acceptance(unittest.TestCase):
             "transport": backend, "enabled": True,
         }
         first = dispatch(**kwargs)
+        heartbeat(store, entity=45, epoch=1, owner="approved-worker",
+                  now=now + timedelta(minutes=1), ttl=timedelta(minutes=30))
+        kwargs["now"] = now + timedelta(minutes=1)
         second = dispatch(**kwargs)
         self.assertEqual(first, second)
         self.assertEqual(backend.attempts, 2)
