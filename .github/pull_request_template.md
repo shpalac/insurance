@@ -1,7 +1,10 @@
 Refs #N
+Completes #N
 
 ## Completion intent
-For a PR that **fully finishes** all acceptance criteria of its linked Issue, add a standalone `Completes #N` line. This triggers the mandatory CI completion test and an audited post-merge closure. Omit `Completes` on partial PRs.
+**Default: one Issue = one finishing PR.** Replace both `#N` placeholders with the actual Issue number. Every acceptance criterion must have a real, registered CI test before merge. The mandatory completion gate rejects missing, skipped or failed AC tests; verified post-merge CI writes the closure audit and automatically closes the Issue.
+
+For a legitimately partial PR, remove the `Completes #N` line and retain only `Refs #N`. Use a child Issue for further work or an Issue whose manifest explicitly declares `multi_pr_allowed: true`. A partial PR must never promise completion.
 
 Do **not** use GitHub native `Closes/Fixes/Resolves #N`: those bypass the factory's post-merge acceptance audit.
 
