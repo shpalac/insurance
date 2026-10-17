@@ -1,0 +1,33 @@
+name: Factory PR acceptance traceability
+on:
+  workflow_run:
+    workflows: ["Factory selective CI"]
+    types: [completed]
+permissions:
+  contents: read
+concurrency:
+  group: insurance-pr-trace-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+      actions: read
+      issues: read
+      pull-requests: write
+    steps:
+      - name: Checkout trusted main, never candidate PR code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          persist-credentials: false
+      - run: python3 -m pip install -r .factory/requirements-dev.txt
+      - name: Publish idempotent SHA-bound traceability
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .factory/scripts/pr_traceability.py
