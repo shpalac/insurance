@@ -1,4 +1,5 @@
 import unittest
+import base64
 from datetime import datetime,timedelta,timezone
 from pathlib import Path
 import sys
@@ -14,6 +15,17 @@ class SharedStore(InMemoryLeaseStore):
 
 class Acceptance(unittest.TestCase):
     def test_ac_3_isolated_initialization_durable_heartbeat_and_bounded_capacity(self):
+        class WrappedContents(GitHubRefLeaseStore):
+            def call(self, method, path, payload=None):
+                if path.startswith("/git/ref/heads/"):
+                    return {"object":{"sha":"a"*40}}
+                if path.startswith("/git/commits/"):
+                    return {"tree":{"sha":"b"*40}}
+                if path.startswith("/contents/"):
+                    encoded=base64.b64encode(b'{"version":1,"leases":{}}').decode()
+                    return {"encoding":"base64","content":encoded[:15]+"\\n"+encoded[15:]}
+                raise AssertionError(path)
+        self.assertEqual(WrappedContents("shpalac/insurance","fake").read_all(),{})
         store=GitHubRefLeaseStore("shpalac/insurance","fake")
         with self.assertRaises(StateError):
             store.initialize_isolated()
