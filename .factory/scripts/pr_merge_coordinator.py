@@ -138,7 +138,7 @@ def live_integrator_fence(api: API, pr: dict, repo: str) -> bool:
         return False
     allowed = set(config["orchestration"].get("approved_agent_logins", []))
     identity = os.environ.get("FACTORY_INTEGRATOR_LOGIN", "")
-    matches = re.findall(r"(?m)^Refs #([1-9][0-9]*)\\s*$",
+    matches = re.findall(r"(?m)^Refs #([1-9][0-9]*)\s*$",
                          pr.get("body") or "")
     if not identity or identity not in allowed or len(matches) != 1:
         return False
