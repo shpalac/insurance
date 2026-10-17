@@ -19,6 +19,7 @@ from validate_issue_manifest import validate_body
 ROOT = Path(__file__).resolve().parents[2]
 READY = "status:ready"
 TRIAGE = "status:triage"
+REPORT_MARKER = "<!-- FACTORY_ISSUE_VALIDATION_V1 -->"
 
 
 def evaluate(event: dict, allowed_logins: set[str]) -> dict:
@@ -75,6 +76,60 @@ def _request(url: str, token: str, method: str, payload: dict | None = None):
     return json.loads(value) if value else None
 
 
+def update_report(
+    decision: dict, *, repository: str, token: str
+) -> None:
+    """Maintain one sticky, sanitized validation comment per issue."""
+    owner, name = repository.split("/", 1)
+    number = decision["issue_number"]
+    root = (
+        f"https://api.github.com/repos/"
+        f"{urllib.parse.quote(owner, safe='')}/"
+        f"{urllib.parse.quote(name, safe='')}"
+    )
+    diagnostics = [
+        str(message).replace("\\n", " ").replace("\x60", "'")[:400]
+        for message in decision["diagnostics"][:20]
+    ]
+    result = "READY" if decision["ready"] else "TRIAGE — REJECTED"
+    report = (
+        f"{REPORT_MARKER}\\n"
+        f"### Factory Issue validation: {result}\\n"
+        + ("\\n".join(f"- {message}" for message in diagnostics)
+           if diagnostics else "All static checks passed.")
+        + "\\n\\nNo Issue-provided commands were executed."
+    )
+    # Enumerate pages so repeated webhook deliveries cannot create duplicates.
+    page = 1
+    previous = None
+    while page <= 50:
+        comments = _request(
+            f"{root}/issues/{number}/comments?per_page=100&page={page}",
+            token, "GET"
+        )
+        if not comments:
+            break
+        for comment in comments:
+            if (REPORT_MARKER in comment.get("body", "")
+                    and comment.get("user", {}).get("type") == "Bot"):
+                previous = comment
+                break
+        if previous:
+            break
+        page += 1
+    if previous is not None:
+        if previous["body"] != report:
+            _request(
+                f"{root}/issues/comments/{previous['id']}",
+                token, "PATCH", {"body": report}
+            )
+    else:
+        _request(
+            f"{root}/issues/{number}/comments",
+            token, "POST", {"body": report}
+        )
+
+
 def apply_decision(decision: dict, *, repository: str, token: str) -> dict:
     """Idempotently update only ready/triage labels from authorized workflow."""
     if not token or not repository or "/" not in repository:
@@ -90,6 +145,7 @@ def apply_decision(decision: dict, *, repository: str, token: str) -> dict:
     )
     issue = _request(base, token, "GET")
     current = {label["name"] for label in issue.get("labels", [])}
+    update_report(decision, repository=repository, token=token)
     add, remove = desired_labels(current, ready=decision["ready"])
     for label in sorted(add):
         _request(f"{base}/labels", token, "POST", {"labels": [label]})
@@ -126,7 +182,7 @@ def main(argv: list[str] | None = None) -> int:
             repository=os.environ.get("GITHUB_REPOSITORY", ""),
             token=os.environ.get("GITHUB_TOKEN", ""),
         )
-    return 0 if decision["ready"] else 2
+    return 0
 
 
 if __name__ == "__main__":
