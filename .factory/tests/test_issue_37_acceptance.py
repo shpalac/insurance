@@ -49,6 +49,7 @@ class Issue37Acceptance(unittest.TestCase):
         self.assertTrue(all(plan["selected_jobs"].values()))
         statuses = {"impact": "success", "policy": "success",
                     "issue_completion": "success",
+                    "acceptance_macos": "success", "acceptance_windows": "success",
                     **{name: "success" for name in plan["selected_jobs"]}}
         self.assertEqual(gate_errors(plan, B, statuses), [])
         for status in ("failure", "cancelled", "skipped", ""):
