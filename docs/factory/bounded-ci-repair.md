@@ -57,3 +57,15 @@ external agent actually repaired a real CI failure**. Do not enable
 unattended repair or auto-close #46 until a privileged owner-run canary
 with a real failing test, one agent repair, current-head CI rerun and
 GitHub audit has succeeded. Main issue #7 retains its own contract.
+
+## Audited closure prerequisite
+
+Issue #46 cannot automatically close merely because the implementation PR
+merged or its unit tests passed. The trusted post-merge audit requires all
+prerequisite Issues #43, #44 and #45 closed **and** a successful independent
+`Factory live CI repair end-to-end canary` on the current protected `main`
+commit, with named stages for an actual failing test, lease-fenced repair,
+new-head verification and required-check rerun. The live canary requires
+an owner-authorized external worker and GitHub App permissions. Until that
+runtime is provisioned and a genuine canary passes, the implementation can
+merge safely but Issue #46 intentionally stays open with a blocked audit.
