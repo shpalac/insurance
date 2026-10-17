@@ -21,3 +21,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 .factory/scripts/verify_branch_protection.py
+      - name: Preserve effective-branch audit evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: main-branch-enforcement
+          path: reports/main-branch-enforcement.json
+          if-no-files-found: warn
