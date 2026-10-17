@@ -24,13 +24,13 @@ def registered():
             "142/AC-2": {"argv": ["python", "-m", "unittest"], "runner_os": "ubuntu-latest"}}
 
 
-def passing(_body, *, issue_id, head_sha, root):
+def passing(_body, *, issue_id, head_sha, root, criteria_subset=None):
     assert issue_id == 142 and head_sha == SHA
     return [
         {"id": n, "status": "PASS", "head_sha": SHA,
          "testcases": 1, "assertions": 2}
         for n in ("AC-1", "AC-2")
-    ]
+    ] if criteria_subset is None or r["id"] in criteria_subset]
 
 
 class AutomaticAcceptanceTests(unittest.TestCase):
