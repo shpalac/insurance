@@ -100,9 +100,33 @@ jobs:
           python -m pip install -e . -r .factory/requirements-dev.txt
           python -m unittest discover -s tests -v
           python -m unittest discover -s .factory/tests -v
+  issue-completion:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Install trusted schema dependencies
+        run: python3 -m pip install -r .factory/requirements-dev.txt
+      - name: Verify full acceptance for PRs promising Issue closure
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .factory/scripts/pr_completion_gate.py
+      - name: Preserve acceptance JUnit on completion claims
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: pr-issue-completion-evidence
+          path: reports/*.xml
+          if-no-files-found: ignore
   factory-gate-preflight:
     if: always()
-    needs: [impact, policy, scanner, factory, docs, macos, windows]
+    needs: [impact, policy, issue-completion, scanner, factory, docs, macos, windows]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -113,6 +137,7 @@ jobs:
           IMPACT_MANIFEST: ${{ needs.impact.outputs.manifest }}
           RESULT_IMPACT: ${{ needs.impact.result }}
           RESULT_POLICY: ${{ needs.policy.result }}
+          RESULT_ISSUE_COMPLETION: ${{ needs.issue-completion.result }}
           RESULT_SCANNER: ${{ needs.scanner.result }}
           RESULT_FACTORY: ${{ needs.factory.result }}
           RESULT_DOCS: ${{ needs.docs.result }}
