@@ -70,11 +70,13 @@ def build_envelope(
         raise DispatchDenied("Worker branch is outside allowed namespace")
     if lease.commit_sha and not SHA.fullmatch(lease.commit_sha):
         raise DispatchDenied("Checkpoint SHA invalid")
+    # Keep the delivery key stable across heartbeat revisions. A checkpoint
+    # or epoch change produces a new key; a retry of the same lease/checkpoint
+    # must resume the existing worker rather than create a second one.
     item = {
         "issue": lease.entity, "epoch": lease.epoch,
-        "revision": lease.revision, "role": lease.role,
-        "owner": lease.owner, "branch": lease.branch,
-        "commit_sha": lease.commit_sha,
+        "role": lease.role, "owner": lease.owner,
+        "branch": lease.branch, "commit_sha": lease.commit_sha,
     }
     key = hashlib.sha256(json.dumps(
         item, sort_keys=True, separators=(",", ":")
