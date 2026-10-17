@@ -18,6 +18,7 @@ import sys
 import xml.etree.ElementTree as ET
 
 from validate_issue_manifest import extract_manifest, validate_body
+from acceptance_discovery import DiscoveryError, available_criteria, named_path
 
 ROOT = Path(__file__).resolve().parents[2]
 SHA = re.compile(r"^[0-9a-f]{40}$")
@@ -97,41 +98,73 @@ def run_criteria(
             raise AcceptanceError("Invalid claimed AC subset")
         selected = [ac for ac in selected if ac["id"] in criteria_subset]
 
-    results = []
+    try:
+        available = available_criteria(
+            root, issue_id, [ac["id"] for ac in selected], targets
+        )
+    except DiscoveryError as exc:
+        raise AcceptanceError(str(exc)) from exc
+    # Pre-clear all reports before running any grouped target. Existing
+    # registered suites often emit multiple AC reports in one invocation.
     for criterion in selected:
-        name = f"{issue_id}/{criterion['id']}"
-        target = targets.get(name)
-        if not isinstance(target, dict):
-            raise AcceptanceError(f"No reviewed trusted test target: {name}")
-        args = target.get("argv")
-        if (not isinstance(args, list) or not args
-                or not all(isinstance(x, str) and x for x in args)
-                or not isinstance(target.get("runner_os"), str)):
-            raise AcceptanceError(f"Invalid trusted target: {name}")
-        if target["runner_os"] != criterion["runner_os"]:
-            raise AcceptanceError(f"OS mismatch for: {name}")
-        # Registry argv must not launch arbitrary shells or depend on PATH.
-        if args[0] not in {"python", "python3"} or args[1:3] != ["-m", "unittest"]:
-            raise AcceptanceError(f"Untrusted executable type: {name}")
         report = _validated_report_path(root, criterion["required_report"])
         report.parent.mkdir(parents=True, exist_ok=True)
         if report.exists():
             report.unlink()
-        runtime = min(criterion["timeout_seconds"], 900)
-        result = subprocess.run(
-            [sys.executable, *args[1:]],
-            cwd=root, capture_output=True, text=True, timeout=runtime,
-            check=False, env={
-                "PATH": os.environ.get("PATH", ""),
-                "PYTHONPATH": str(root),
-                "PYTHONDONTWRITEBYTECODE": "1",
-            }
-        )
-        if result.returncode:
+
+    results = []
+    executed: set[tuple[str, ...]] = set()
+    for criterion in selected:
+        name = f"{issue_id}/{criterion['id']}"
+        source = available.get(criterion["id"])
+        if source is None:
             raise AcceptanceError(
-                f"{name}: trusted test failed with exit {result.returncode}: "
-                f"{result.stderr[-800:]}"
+                f"No implementation-shipped acceptance test for {name}; "
+                f"add .factory/acceptance/issue_{issue_id}/"
+                f"test_ac_{criterion['id'].split('-')[1]}.py"
             )
+        report = _validated_report_path(root, criterion["required_report"])
+        if source == "reviewed":
+            target = targets[name]
+            args = target.get("argv")
+            if (not isinstance(args, list) or len(args) < 3
+                    or not all(isinstance(x, str) and x for x in args)
+                    or not isinstance(target.get("runner_os"), str)):
+                raise AcceptanceError(f"Invalid reviewed target: {name}")
+            if target["runner_os"] != criterion["runner_os"]:
+                raise AcceptanceError(f"OS mismatch for: {name}")
+            if args[0] not in {"python", "python3"} or args[1:3] != ["-m", "unittest"]:
+                raise AcceptanceError(f"Untrusted executable type: {name}")
+            command = (sys.executable, *args[1:])
+            cache_key = ("reviewed", *command)
+        else:
+            # No arbitrary command comes from Issue text, and new Issues
+            # require no hand-edited registry.
+            if criterion["runner_os"] != "ubuntu-latest":
+                raise AcceptanceError(f"{name}: requires runner-specific hosted proof")
+            command = (
+                sys.executable,
+                str(root / ".factory/scripts/run_named_acceptance.py"),
+                "--issue", str(issue_id), "--criterion", criterion["id"],
+                "--report", str(report),
+            )
+            cache_key = ("co-shipped", *command)
+        if cache_key not in executed:
+            runtime = min(criterion["timeout_seconds"], 900)
+            result = subprocess.run(
+                command, cwd=root, capture_output=True, text=True,
+                timeout=runtime, check=False, env={
+                    "PATH": os.environ.get("PATH", ""),
+                    "PYTHONPATH": str(root),
+                    "PYTHONDONTWRITEBYTECODE": "1",
+                }
+            )
+            if result.returncode:
+                raise AcceptanceError(
+                    f"{name}: acceptance failed ({result.returncode}): "
+                    f"{result.stderr[-300:]}"
+                )
+            executed.add(cache_key)
         evidence = verify_report(report)
         results.append({
             "id": criterion["id"],
