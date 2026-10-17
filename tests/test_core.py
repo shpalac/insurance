@@ -31,6 +31,16 @@ def record(q):
     }
 
 
+class TestSession(unittest.TestCase):
+    def test_weekend_never_collects(self):
+        from insurance.ibkr import regular_session
+        self.assertFalse(regular_session(datetime(2026, 10, 17, 15, tzinfo=timezone.utc)))
+
+    def test_friday_rth_collects(self):
+        from insurance.ibkr import regular_session
+        self.assertTrue(regular_session(datetime(2026, 10, 16, 15, tzinfo=timezone.utc)))
+
+
 class TestScanner(unittest.TestCase):
     def setUp(self):
         self.config = Settings(min_daily_returns=120, simulations=200)

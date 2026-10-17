@@ -75,3 +75,15 @@ Reference contract rules: [Cboe SPX/XSP specifications](https://www.cboe.com/tra
 The read-only IBKR connector returned SPX/XSP chain identifiers, 251 daily SPX observations, and frozen/delayed option bid/ask observations on October 17, 2026. A sample of the **actual quoted figures** is preserved in `data/observations/2026-10-17-frozen.json` with *null* quote times because the connector returned last-trade timestamps, **not** bid/ask quote timestamps. The scanner rejects these values and emits **NO TRADE**. This does not imply any live edge.
 
 For fresh data, both underlying spot and option quotes require distinct timestamp and data-type validation. Installing a read-only Gateway/TWS collector and a continuously running host remains necessary.
+
+## Local IBKR Gateway collector (optional)
+
+Requires TWS/IB Gateway on your own machine, a market data subscription, and TWS configured **read-only**. The adapter uses `ib_async` with `readonly=True`; it cannot place an order. The ChatGPT IBKR connection does **not** expose a reusable credential or data feed to this repository. The collector is included but **not connected/deployed or integration-tested against your local Gateway**.
+
+~~~bash
+python -m pip install -e '.[broker]'
+insurance-ibkr --host 127.0.0.1 --port 7497 --loop --interval 300
+insurance --snapshot data/snapshots/ibkr.json --loop --interval 300
+~~~
+
+Run collector and scanner in separate processes. This collector is deliberately limited to 9:30 a.m.–4:00 p.m. US Eastern on weekdays, without a full holiday calendar: holiday data still fails freshness tests if missing. IBKR delayed/frozen quotes are rejected, including on weekends; an IBKR last-trade timestamp is **not** accepted as a substitute for an executable quote. Future work: prove broker quote timestamps with tick-by-tick bid/ask reception, adopt the exchange calendar and GTH, reduce polling by streaming, test reconnects and broker entitlements.

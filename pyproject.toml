@@ -14,6 +14,7 @@ broker = ["ib_async>=2.0,<3"]
 
 [project.scripts]
 insurance = "insurance.cli:main"
+insurance-ibkr = "insurance.ibkr:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
