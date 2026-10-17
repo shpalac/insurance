@@ -97,15 +97,15 @@ class FakeGitHub:
         raise AssertionError("Unexpected PATCH: " + endpoint)
 
 
-def passing_run(body, *, issue_id, head_sha, root):
+def passing_run(body, *, issue_id, head_sha, root, criteria_subset=None):
     assert issue_id == 142 and head_sha == SHA
     assert "factory-acceptance-manifest" in body
-    return [
+    return [r for r in [
         {"id": "AC-1", "status": "PASS", "assertions": 3,
          "testcases": 2, "head_sha": SHA},
         {"id": "AC-2", "status": "PASS", "assertions": 1,
          "testcases": 1, "head_sha": SHA},
-    ]
+    ] if criteria_subset is None or r["id"] in criteria_subset]
 
 
 class ClosureTests(unittest.TestCase):
