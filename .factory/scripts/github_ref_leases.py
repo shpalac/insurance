@@ -111,7 +111,9 @@ class GitHubRefLeaseStore:
         file = self.call("GET", f"/contents/{self.FILE}?ref={sha}")
         if file.get("encoding") != "base64":
             raise StateError("Missing/unsupported lease state object")
-        decoded = base64.b64decode(file["content"], validate=True)
+        # GitHub Contents API wraps base64 at newline boundaries.
+        encoded = "".join(file["content"].split())
+        decoded = base64.b64decode(encoded, validate=True)
         data = json.loads(decoded)
         if data.get("version") != 1 or not isinstance(data.get("leases"), dict):
             raise StateError("Unexpected versioned lease map")
