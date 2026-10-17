@@ -1,0 +1,26 @@
+name: Factory executable Issue preflight
+on:
+  issues:
+    types: [opened, edited, reopened]
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: insurance-issue-preflight-${{ github.event.issue.number }}
+  cancel-in-progress: false
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Checkout trusted default branch only
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Install static schema dependencies
+        run: python3 -m pip install -r .factory/requirements-dev.txt
+      - name: Publish idempotent exact schema errors without executing Issue commands
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 .factory/scripts/issue_preflight.py
