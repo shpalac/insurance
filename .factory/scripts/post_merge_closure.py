@@ -24,6 +24,7 @@ from integration_policy import closure_progress
 from acceptance_discovery import DiscoveryError, available_criteria
 from run_acceptance_manifest import AcceptanceError, load_targets, run_criteria
 from cross_os_proof import CrossOSProofError, verified_hosted_rows
+from lease_canary_proof import HostedLeaseCanaryMissing, verify_live_lease_canary
 from validate_issue_manifest import extract_manifest, validate_body
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -259,6 +260,10 @@ def prepare(api: GitHub, sha: str, run_id: int, *, run=run_criteria):
                     } for row in results]
                     for row, proof in zip(results, evidence):
                         proof.update(durable_report_fields(row))
+                    if number == 44:
+                        if api.get("/issues/43").get("state") != "closed":
+                            raise HostedLeaseCanaryMissing("Identity dependency #43 is open")
+                        item["hosted_canary"] = verify_live_lease_canary(api, sha)
                     audit = closure_progress(
                         criteria_ids=item["criteria"], evidence=evidence, main_sha=sha
                     )
@@ -267,7 +272,7 @@ def prepare(api: GitHub, sha: str, run_id: int, *, run=run_criteria):
                     item["status"] = "ready"
                     item["reason"] = "all_acceptance_green_on_main"
                     item["evidence"] = evidence
-            except (AcceptanceError, CrossOSProofError, OSError, ValueError) as exc:
+            except (AcceptanceError, CrossOSProofError, HostedLeaseCanaryMissing, OSError, ValueError) as exc:
                     item["reason"] = "acceptance_incomplete_or_untrusted_target"
                     # Do not leak stdout, stderr, or issue-supplied strings into public comments.
                     print(f"Issue #{number}: acceptance blocked ({type(exc).__name__})")
@@ -382,6 +387,12 @@ def apply(api: GitHub, sha: str, plan: dict):
                     or type(proof.get("testcases")) is not int
                     or proof["testcases"] < 1):
                 raise ReconcileError("Durable acceptance proof is incomplete")
+        if number == 44:
+            if api.get("/issues/43").get("state") != "closed":
+                blocked.append({"issue": number, "reason": "identity_dependency_pending"})
+                continue
+            if item.get("hosted_canary") != verify_live_lease_canary(api, sha):
+                raise ReconcileError("Hosted canary proof differs from immutable main")
         decision = closure_progress(criteria_ids=criteria, evidence=evidence, main_sha=sha)
         if not decision["should_close"]:
             blocked.append({"issue": number, "reason": "incomplete_criteria"})
