@@ -11,7 +11,7 @@ class Acceptance(unittest.TestCase):
         self.assertEqual(selected["action"],"update")
         source=(ROOT/".factory/scripts/pr_merge_coordinator.py").read_text()
         self.assertIn("expected_head_sha",source)
-        self.assertNotIn("force-push",source.split('if action["action"] == "update":')[1])
+        self.assertNotIn('"force": true',source.lower())
         self.assertIn('latest["head"]["sha"] != action["head_sha"]',source)
         workflow=(ROOT/".github/workflows/factory-serialized-merge.yml").read_text()
         self.assertIn("ref: main",workflow)
