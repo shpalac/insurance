@@ -67,6 +67,7 @@
       "required": [
         "enabled",
         "agent_backend",
+        "agent_providers",
         "approved_agent_logins",
         "lease_backend",
         "max_concurrent_agents",
@@ -78,6 +79,14 @@
         },
         "agent_backend": {
           "const": "external"
+        },
+        "agent_providers": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{1,48}$"
+          }
         },
         "approved_agent_logins": {
           "type": "array",
