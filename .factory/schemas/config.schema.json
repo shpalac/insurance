@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Repository factory adapter",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "repository",
+    "orchestration",
+    "runners",
+    "verification",
+    "limits"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "default_branch",
+        "visibility",
+        "issue_reference_mode",
+        "merge_strategy",
+        "protected_paths"
+      ],
+      "properties": {
+        "default_branch": {
+          "type": "string",
+          "minLength": 1
+        },
+        "visibility": {
+          "const": "public"
+        },
+        "issue_reference_mode": {
+          "enum": [
+            "refs",
+            "closes"
+          ]
+        },
+        "merge_strategy": {
+          "enum": [
+            "squash_auto_merge",
+            "merge_queue"
+          ]
+        },
+        "protected_paths": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "orchestration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "agent_backend",
+        "approved_agent_logins",
+        "lease_backend",
+        "max_concurrent_agents",
+        "external_llm_backend_required"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "agent_backend": {
+          "const": "external"
+        },
+        "approved_agent_logins": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9-]{1,39}$"
+          }
+        },
+        "lease_backend": {
+          "const": "github_ref_cas"
+        },
+        "max_concurrent_agents": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "external_llm_backend_required": {
+          "const": true
+        }
+      }
+    },
+    "runners": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "default",
+        "allowed"
+      ],
+      "properties": {
+        "default": {
+          "type": "string"
+        },
+        "allowed": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "ubuntu-latest",
+              "macos-latest",
+              "windows-latest"
+            ]
+          }
+        }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "min_diff_coverage_percent"
+      ],
+      "properties": {
+        "min_diff_coverage_percent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lease_ttl_minutes",
+        "heartbeat_interval_minutes",
+        "max_ci_repair_attempts",
+        "max_merge_conflict_rebases",
+        "max_replan_attempts",
+        "fast_lane_target_seconds"
+      ],
+      "properties": {
+        "lease_ttl_minutes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "heartbeat_interval_minutes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_ci_repair_attempts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_merge_conflict_rebases": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_replan_attempts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "fast_lane_target_seconds": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}
