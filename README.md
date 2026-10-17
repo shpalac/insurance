@@ -1,6 +1,9 @@
 <div align="center">
 
-<img src="./docs/assets/insurance-hero.svg" alt="INSURANCE — Risk has a price. Edge needs proof. Conceptual P and Q probability curves; research mode, no live orders." width="100%" />
+<picture>
+  <source media="(max-width: 720px)" srcset="./docs/assets/insurance-hero-mobile.svg" />
+  <img src="./docs/assets/insurance-hero.svg" alt="INSURANCE — Risk has a price. Edge needs proof. Conceptual P and Q probability curves; research only, no live orders." width="100%" />
+</picture>
 
 <br />
 
@@ -11,7 +14,7 @@
 
 **An open-source, evidence-first laboratory for finding options insurance that might be overpriced or underpriced.**
 
-[Overview](#the-idea) · [Capabilities](#what-works-today) · [Quick start](#quick-start) · [Architecture](#how-it-works) · [Models & risk](#the-evidence-bar) · [Roadmap](#roadmap) · [Software factory](#autonomous-software-factory)
+[Why it exists](#the-idea) · [Scanner preview](#scanner-preview) · [Run the demo](#quick-start) · [Capabilities](#what-works-today) · [Architecture](#how-it-works) · [Edge validation](#the-evidence-bar) · [Market data](#bring-your-own-ibkr-market-data) · [Contribute](#contributing--security)
 
 </div>
 
@@ -59,6 +62,36 @@ An insurance premium can only be called expensive or cheap relative to a defensi
 
 **The most useful answer is sometimes `NO TRADE`.** This is a designed outcome, not a scanner failure.
 
+## Scanner preview
+
+This research-console **visualization is built from the real, checked-in October 17, 2026 negative-control snapshot**. The layout is illustrative, not a working dashboard or live stream. It shows what the scanner can reliably establish today: **four non-real-time quotes, zero eligible quotes, and no verified trade**.
+
+![Research console visualization: four recorded quotes, none eligible, all rejected for non-real-time data and missing quote timestamps; NO TRADE.](docs/assets/scanner-preview.svg)
+
+<sub>Fixture-backed values · Historical data only · No fabricated opportunities or backtested performance</sub>
+
+### What a future research candidate must show
+
+The schema below is a **UI contract, not a trade list**. No positions are populated until validated, time-stamped data and the evidence gates are available.
+
+| View | Modeled net EV | Conservative EV bound | Worst-case loss | Liquidity | Status |
+|:--|:--|:--|:--|:--|:--|
+| **BUY insurance** | Required, net of costs | Required; no approved estimate today | Defined before ranking | Executable ask, size and spread | `UNVERIFIED` |
+| **SELL insurance** | Required, net of costs | Required; no approved estimate today | Spread width and all costs | Executable bid, size and spread | `UNVERIFIED` |
+
+A future dashboard should show each candidate's actual contract legs, expiration, P/Q assumptions, model version, point-in-time bid/ask, tail loss and *why it passed or failed*. A large premium or high probability of profit is never enough.
+
+**The decision contract:** Validate inputs → construct research candidates → estimate payoff under exploratory P → apply conservative costs and risk → **reject promotion until statistical evidence exists**. The absence of trades in this historical fixture is a correct data-quality result, not proof that the wider market has no opportunities.
+
+## Choose your path
+
+| I'm here to… | Start with… |
+|:--|:--|
+| **Run something now** | [Three-minute local quick start](#quick-start) and [reproducible output](#reproducible-demonstration) |
+| **Understand opportunity pricing** | [P vs Q and evidence standards](#the-evidence-bar) |
+| **Connect quote data** | [IBKR collector](#bring-your-own-ibkr-market-data) and [market-data architecture](docs/market-data-operations.md) |
+| **Contribute code or delegate to agents** | [CONTRIBUTING.md](CONTRIBUTING.md), [AGENTS.md](AGENTS.md) and [factory contracts](#autonomous-software-factory) |
+
 ## What works today
 
 The capabilities below describe code *actually present in this repository*, not the long-term mission.
@@ -104,6 +137,35 @@ insurance \
 ~~~
 
 **Expected result:** `"recommendation": "NO TRADE"`, with `0` eligible quotes. That is a *verified data rejection*, **not evidence that the market has no mispriced options**.
+
+### Reproducible demonstration
+
+Want the human-readable scanner summary instead of the larger research JSON? Run:
+
+~~~bash
+python scripts/readme_demo.py
+~~~
+
+The demo calls the **actual scanner** on the tracked fixture; its output is not hand-crafted sample trades:
+
+~~~json
+{
+  "as_of": "2026-10-17T13:54:21.995000+00:00",
+  "data": "recorded frozen/delayed fixture; not live",
+  "quotes_received": 4,
+  "market_data_eligible": 0,
+  "rejection_counts": {
+    "NOT_REALTIME": 4,
+    "MISSING_QUOTE_TIME": 4
+  },
+  "buy_research_candidates": 0,
+  "sell_research_candidates": 0,
+  "statistically_supported_candidates": 0,
+  "recommendation": "NO TRADE"
+}
+~~~
+
+These rejection counts **overlap**: each of the four quotes fails both checks. CI executes `python scripts/readme_demo.py --check` to guard the negative-control behavior; it also validates README-linked files via `python scripts/check_readme.py`.
 
 To inspect the out-of-sample **volatility diagnostics** (not an options-strategy backtest):
 
@@ -196,6 +258,8 @@ The scanner uses **short-leg bid / long-leg ask** for credit entries and **long-
 
 **A positive modeled EV is not proof of an edge.** Ultimately a candidate must pass out-of-sample option-payout validation, sensitivity and stress testing, correction for selection effects, execution-quality checks and a conservative *positive lower confidence bound* on net EV. None of these evidence gates is implemented as an approval engine yet.
 
+**Full evidence framework:** [eight auditable promotion gates, required candidate fields and statistical criteria](docs/research-validation.md). This is the implementation roadmap for turning exploratory rankings into scientifically supported signals — not a current capability.
+
 ### Safety contract
 
 | Hard boundary | Present behavior |
@@ -245,6 +309,8 @@ insurance --snapshot data/snapshots/ibkr.json --loop --interval 300
 - IBKR's snapshot `ticker.time` is **not proven to be a bid/ask update timestamp**. Independently verified quote receipt times, subscription health, pacing and reconnection must be implemented before production use.
 - Snapshots, databases and credentials should stay in untracked local storage. GitHub-hosted CI is **ephemeral** and does **not** provide a continuously running authenticated broker session.
 
+For the **architecture of market-hours monitoring**, including private persistent collectors, durable snapshots, stateless scheduled runners, session calendars and failure modes, read [Market data & operations](docs/market-data-operations.md).
+
 For data providers, expiration selection, input schema details and validation behavior, start in [`ibkr.py`](src/insurance/ibkr.py), [`Quote.from_dict()`](src/insurance/core.py) and the checked-in [observed fixture](data/observations/2026-10-17-frozen.json).
 
 ## Roadmap
@@ -292,6 +358,8 @@ python3 -m unittest discover -s .factory/tests -v
 ## Contributing & security
 
 Contributions that improve **data correctness, reproducibility, statistical validation and safety** are the priority. Add tests for failure modes, keep research claims attributable to data and label assumptions explicitly.
+
+**Start here:** [Contribution guide](CONTRIBUTING.md) · [Agent operating rules](AGENTS.md) · [Research evidence gates](docs/research-validation.md) · [MIT License](LICENSE).
 
 This is a **public repository**. Never commit IBKR credentials, account data, customer records, PII or private market-data exports. Follow [`SECURITY.md`](SECURITY.md) and [`AGENTS.md`](AGENTS.md).
 
