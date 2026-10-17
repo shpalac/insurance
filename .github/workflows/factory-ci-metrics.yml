@@ -1,0 +1,35 @@
+name: Factory CI performance metrics
+on:
+  workflow_run:
+    workflows: ["Factory selective CI"]
+    types: [completed]
+
+# Trusted main checkout and read-only GitHub API. This is observability,
+# never a replacement for the existing branch-required CI checks.
+permissions:
+  contents: read
+  actions: read
+  checks: read
+  pull-requests: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout trusted main only
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Generate versioned per-run and p50/p95 historical metrics
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .factory/scripts/factory_ci_metrics.py --output reports/ci-performance-v1.json
+      - name: Archive measured CI performance evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: factory-ci-performance-v1
+          path: reports/ci-performance-v1.json
+          if-no-files-found: warn
+          retention-days: 90
