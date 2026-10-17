@@ -38,6 +38,7 @@ jobs:
       actions: read
     outputs:
       proof: ${{ steps.prove.outputs.proof }}
+      main_sha: ${{ steps.prove.outputs.main_sha }}
     steps:
       - name: Checkout trusted main without persisted credentials
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -50,8 +51,11 @@ jobs:
         id: prove
         env:
           GH_TOKEN: ${{ github.token }}
-          MAIN_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: |
+          # github.sha on issue-edit events can reference an older main commit.
+          # Bind both proof and privileged apply to the actual trusted checkout.
+          MAIN_SHA="$(git rev-parse HEAD)"
+          echo "main_sha=$MAIN_SHA" >> "$GITHUB_OUTPUT"
           python3 .factory/scripts/post_merge_closure.py prepare --sha "$MAIN_SHA" --output factory-closure-plan.json
       - name: Preserve acceptance reports
         if: always()
@@ -85,7 +89,7 @@ jobs:
       - name: Apply verified audit and close only fully complete Issues
         env:
           GH_TOKEN: ${{ github.token }}
-          MAIN_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+          MAIN_SHA: ${{ needs.verify.outputs.main_sha }}
           CLOSURE_PROOF: ${{ needs.verify.outputs.proof }}
         run: |
           python3 .factory/scripts/post_merge_closure.py apply --sha "$MAIN_SHA"
