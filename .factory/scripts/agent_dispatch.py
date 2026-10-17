@@ -198,25 +198,28 @@ def main() -> int:
             dispatch_owner = lease.owner
             role = lease.role
         else:
-            role = plan["role"]
+            lease = None
             dispatch_owner = owner
-            lease = acquire(
-                store, entity=plan["issue"], owner=dispatch_owner, role=role,
-                now=now,
-                ttl=timedelta(minutes=config["limits"]["lease_ttl_minutes"]),
-            )
+            role = plan["role"]
 
         role_secret = "FACTORY_AGENT_TOKEN_" + role.upper().replace("-", "_")
         role_token = os.getenv(role_secret, "")
         if not role_token:
             print(json.dumps({"status": "disabled", "reason": "role_scoped_credential_missing"}))
             return 0
+        transport = WebhookBackend(endpoint, role_token)
 
+        if lease is None:
+            lease = acquire(
+                store, entity=plan["issue"], owner=dispatch_owner, role=role,
+                now=now,
+                ttl=timedelta(minutes=config["limits"]["lease_ttl_minutes"]),
+            )
         receipt = dispatch(
             store=store, issue=plan["issue"], authenticated_login=dispatch_owner,
             role=role, approved_logins=approved, now=now,
             provider=provider, configured_providers=providers,
-            transport=WebhookBackend(endpoint, role_token), enabled=True,
+            transport=transport, enabled=True,
         )
         print(json.dumps({
             "status": "dispatched", "issue": lease.entity,
