@@ -23,7 +23,8 @@
         "visibility",
         "issue_reference_mode",
         "merge_strategy",
-        "protected_paths"
+        "protected_paths",
+        "review_policy"
       ],
       "properties": {
         "default_branch": {
@@ -53,6 +54,10 @@
             "type": "string",
             "minLength": 1
           }
+        },
+        "review_policy": {
+          "const": "ci_only",
+          "description": "No independent reviewer approval required; required CI and issue-acceptance gates remain mandatory."
         }
       }
     },
