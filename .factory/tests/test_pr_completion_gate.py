@@ -146,12 +146,14 @@ class CompletionGateTests(unittest.TestCase):
             preflight("Refs #142\nCompletes #142", head_sha="main",
                       fetch_issue=issue)
 
-    def test_non_ubuntu_acceptance_requires_additional_runner(self):
+    def test_non_ubuntu_acceptance_is_delegated_to_hosted_gate(self):
         other = BODY.replace("runner_os: ubuntu-latest",
                              "runner_os: macos-latest", 1)
-        with self.assertRaises(CompletionError):
-            preflight("Refs #142\nCompletes #142", head_sha=SHA,
-                      fetch_issue=lambda n: issue(body=other), run=run_acceptance)
+        reports = preflight("Refs #142\nCompletes #142", head_sha=SHA,
+                            fetch_issue=lambda n: issue(body=other), run=run_acceptance)
+        self.assertEqual(reports[0]["criteria"], ["AC-1", "AC-2"])
+        workflow = (ROOT / ".github/workflows/ci-selective.yml").read_text()
+        self.assertIn("needs.acceptance-macos.result", workflow)
 
     def test_token_free_issue_payload_requires_matching_number(self):
         self.assertEqual(
