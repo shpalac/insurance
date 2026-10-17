@@ -1,0 +1,81 @@
+name: Factory isolated lease CAS canary
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.factory/scripts/lease_canary.py'
+      - '.factory/scripts/github_ref_leases.py'
+      - '.factory/scripts/lease_fencing.py'
+      - '.github/workflows/factory-lease-canary.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: insurance-isolated-lease-canary
+  cancel-in-progress: false
+jobs:
+  initialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Initialize one orphan state ref outside main
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 .factory/scripts/lease_canary.py --mode init --run-id "${{ github.run_id }}"
+  race:
+    needs: [initialize]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        contender: [one, two]
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Independent worker performs nonforced CAS claim
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 .factory/scripts/lease_canary.py --mode claim --run-id "${{ github.run_id }}" --contender "${{ matrix.contender }}" --output result.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lease-canary-${{ matrix.contender }}
+          path: result.json
+          retention-days: 30
+  verify-single-winner:
+    needs: [race]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: lease-canary-*
+          path: results
+      - name: Validate exactly one winner against durable GitHub ref
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 .factory/scripts/lease_canary.py --mode verify --run-id "${{ github.run_id }}"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          results = [json.loads((Path("results") / f"lease-canary-{n}" / "result.json").read_text()) for n in ("one", "two")]
+          assert sum(row["won"] for row in results) == 1, "Expected exactly one winning hosted CAS claim"
+          print("PASS: two independent GitHub-hosted workers, one durable winning lease")
+          PY

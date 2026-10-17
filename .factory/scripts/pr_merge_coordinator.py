@@ -10,7 +10,13 @@ import json
 import os
 import re
 import sys
+from datetime import datetime, timezone
 from urllib import request, error
+
+import yaml
+from github_ref_leases import GitHubRefLeaseStore
+from lease_fencing import WorkerProof, assert_fence
+from lease_state import StaleLease
 
 REQUIRED = ("unit-tests", "factory-gate-preflight", "factory-bootstrap-gate",
             "issue-completion", "factory-trusted-admission")
@@ -117,6 +123,46 @@ class API:
         return self.call("GET", path)
 
 
+def live_integrator_fence(api: API, pr: dict, repo: str) -> bool:
+    """Agent-driven branch updates and merges require an active lease.
+
+    The check is performed against the remote immutable lease state before
+    every privileged GitHub action. Native owner-driven PR merges remain
+    governed by the separately enforced GitHub branch rules.
+    """
+    from pathlib import Path
+    config = yaml.safe_load(
+        (Path(__file__).resolve().parents[1] / "config.yaml").read_text()
+    )
+    if config["orchestration"]["enabled"] is not True:
+        return False
+    allowed = set(config["orchestration"].get("approved_agent_logins", []))
+    identity = os.environ.get("FACTORY_INTEGRATOR_LOGIN", "")
+    matches = re.findall(r"(?m)^Refs #([1-9][0-9]*)\s*$",
+                         pr.get("body") or "")
+    if not identity or identity not in allowed or len(matches) != 1:
+        return False
+    store = GitHubRefLeaseStore(repo, api.token, write_enabled=False)
+    lease = store.read(int(matches[0]))
+    if lease is None:
+        return False
+    proof = WorkerProof(
+        lease.entity, lease.epoch, lease.revision, lease.owner,
+        lease.role, lease.branch, lease.commit_sha,
+    )
+    try:
+        assert_fence(
+            store, proof=proof, operation="integrator_merge",
+            authenticated_login=identity, approved_logins=allowed,
+            now=datetime.now(timezone.utc),
+            actual_branch=(pr.get("head") or {}).get("ref", ""),
+            actual_sha=(pr.get("head") or {}).get("sha", ""),
+        )
+    except StaleLease:
+        return False
+    return True
+
+
 def tick(api: API, repo: str, owner: str) -> dict:
     main = api.get("/branches/main")
     if main.get("protected") is not True:
@@ -152,6 +198,8 @@ def tick(api: API, repo: str, owner: str) -> dict:
             or latest["base"]["sha"] != sha
             or latest.get("state") != "open"):
         return {"action": "stale", "reason": "PR head/base moved"}
+    if not live_integrator_fence(api, latest, repo):
+        return {"action": "blocked", "reason": "active_integrator_lease_required"}
     if action["action"] == "update":
         # GitHub API compares expected_head_sha and creates a normal merge
         # commit on the contributor branch. Never force-push.
