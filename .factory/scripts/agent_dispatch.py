@@ -9,7 +9,6 @@ closed without dispatching work.
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from http.client import HTTPResponse
 import json
 import os
 from pathlib import Path
@@ -37,6 +36,16 @@ class NoRedirect(request.HTTPRedirectHandler):
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
+
+
+class GitHubReadAPI:
+    """Read-only facade for helpers that consume a minimal get(path) client."""
+
+    def __init__(self, store: GitHubRefLeaseStore):
+        self.store = store
+
+    def get(self, path: str) -> dict:
+        return self.store.call("GET", path)
 
 
 class WebhookBackend:
@@ -167,7 +176,7 @@ def main() -> int:
             print(json.dumps({"status": "idle", "reason": "main_moved_during_dispatch"}))
             return 0
         try:
-            verify_live_repair_proof(store, main_sha)
+            verify_live_repair_proof(GitHubReadAPI(store), main_sha)
         except LiveRepairProofMissing:
             print(json.dumps({"status": "disabled", "reason": "live_canary_not_verified"}))
             return 0
