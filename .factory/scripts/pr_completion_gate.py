@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Fail-closed PR completion preflight. A merge alone is NOT acceptance proof.
 
-PRs with only "Refs #N" may merge as partial work. To promise closure, use
-"Completes #N" AND "Refs #N". Every criterion must pass as a trusted registered
-target on the current PR head before the aggregate factory gate turns green.
-On main, the separate read-only proof + privileged audit performs closure.
+Every linked PR uses "Refs #N". When all acceptance targets for an Issue
+are registered, CI automatically runs *all* of them at the PR head even without
+an explicit completion marker; an incomplete result blocks the merge. When
+targets are not yet registered, multi-PR issues remain partial and mergeable
+(subject to the other CI gates), while single-PR issues fail closed.
+"Completes #N" is accepted for compatibility but is never required for automatic
+post-merge closure. The separate trusted-main audit is authoritative.
 """
 
 from __future__ import annotations
@@ -15,7 +18,7 @@ from pathlib import Path
 import re
 import sys
 
-from run_acceptance_manifest import AcceptanceError, run_criteria
+from run_acceptance_manifest import AcceptanceError, load_targets, run_criteria
 from validate_issue_manifest import extract_manifest, validate_body
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -59,27 +62,11 @@ def preflight(
     if not isinstance(head_sha, str) or not SHA.fullmatch(head_sha):
         raise CompletionError("Missing immutable PR head SHA")
     refs, completes = parse_intent(body)
-    # A single-PR Issue must never accept a partial merge. The Issue metadata
-    # is captured in a separate read-only step and treated as untrusted data.
-    for number in refs:
-        issue = fetch_issue(number)
-        if (not isinstance(issue, dict) or issue.get("number") != number
-                or issue.get("state") != "open" or "pull_request" in issue):
-            raise CompletionError(f"Linked Issue #{number} is missing or not open")
-        if number not in completes:
-            errors = validate_body(
-                issue.get("body") or "", root=root, expected_issue_id=number
-            )
-            if errors:
-                raise CompletionError(f"Partial Issue #{number} lacks valid manifest")
-            manifest = extract_manifest(issue["body"])
-            if manifest["dependencies"]["multi_pr_allowed"] is not True:
-                raise CompletionError(
-                    f"Issue #{number} is single-PR: add Completes #{number} "
-                    "and verify all ACs before merging"
-                )
+    # The trusted registry is repository-owned; the public Issue cannot
+    # supply shell commands or claim that an acceptance test exists.
+    targets = load_targets(root)
     reports = []
-    for number in completes:
+    for number in refs:
         issue = fetch_issue(number)
         if (not isinstance(issue, dict) or issue.get("number") != number
                 or issue.get("state") != "open" or "pull_request" in issue):
@@ -92,6 +79,22 @@ def preflight(
             )
         manifest = extract_manifest(issue_body)
         expected = [ac["id"] for ac in manifest["acceptance_criteria"]]
+        registered = all(
+            isinstance(targets.get(f"{number}/{criterion}"), dict)
+            for criterion in expected
+        )
+        if not registered and number not in completes:
+            if not manifest["dependencies"]["multi_pr_allowed"]:
+                raise CompletionError(
+                    f"Issue #{number} is single-PR: all acceptance targets "
+                    "must be registered and verified before merging"
+                )
+            # An incomplete multi-PR slice may merge; the main verifier will
+            # retain its parent Issue open and record missing acceptance.
+            continue
+
+        # When the registry becomes complete, there is no manual "finishing
+        # PR" action. Every linked PR automatically proves all criteria.
         if any(ac["runner_os"] != "ubuntu-latest"
                for ac in manifest["acceptance_criteria"]):
             raise CompletionError(
@@ -159,7 +162,7 @@ def main() -> int:
                         f"{len(report['criteria'])} verified acceptance criteria "
                         f"at \u0060{head}\u0060\n"
                     )
-        print(f"Verified {len(reports)} complete-issue declaration(s) at {head}")
+        print(f"Automatically verified {len(reports)} fully accepted issue(s) at {head}")
         return 0
     except (CompletionError, OSError, ValueError, KeyError, TypeError) as exc:
         print(f"ERROR: completion gate blocked: {exc}", file=sys.stderr)
