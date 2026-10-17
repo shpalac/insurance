@@ -273,6 +273,45 @@
         "-p",
         "test_issue_5_acceptance.py"
       ]
+    },
+    "37/AC-1": {
+      "runner_os": "ubuntu-latest",
+      "argv": [
+        "python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        ".factory/tests",
+        "-p",
+        "test_issue_37_acceptance.py"
+      ]
+    },
+    "37/AC-2": {
+      "runner_os": "ubuntu-latest",
+      "argv": [
+        "python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        ".factory/tests",
+        "-p",
+        "test_issue_37_acceptance.py"
+      ]
+    },
+    "37/AC-3": {
+      "runner_os": "ubuntu-latest",
+      "argv": [
+        "python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        ".factory/tests",
+        "-p",
+        "test_issue_37_acceptance.py"
+      ]
     }
   }
 }
