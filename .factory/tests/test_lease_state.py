@@ -95,13 +95,19 @@ class LeaseTests(unittest.TestCase):
 
     def test_budget_blocks_fourth_attempt(self):
         lease = self.take()
-        for idx in range(4):
+        for idx in range(3):
             current = checkpoint(
                 self.store, entity=142, epoch=lease.epoch,
                 owner=lease.owner, now=NOW, branch="factory/issue-142",
                 sha="a" * 40, diff=str(idx),
             )
         self.assertEqual(current.phase, "blocked")
+        with self.assertRaises(StaleLease):
+            checkpoint(
+                self.store, entity=142, epoch=lease.epoch,
+                owner=lease.owner, now=NOW, branch="factory/issue-142",
+                sha="b" * 40, diff="fourth attempt",
+            )
 
     def test_blocked_lease_cannot_be_reclaimed_by_expiry(self):
         lease = self.take()
