@@ -1,0 +1,24 @@
+name: Factory Issue validation
+on:
+  issues:
+    types: [opened, edited, reopened, labeled]
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+jobs:
+  issue-validation:
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout trusted default-branch workflow
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Install static validator dependencies
+        run: python3 -m pip install -r .factory/requirements-dev.txt
+      - name: Evaluate untrusted Issue metadata and update status idempotently
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .factory/scripts/issue_transition.py --event "$GITHUB_EVENT_PATH" --apply
