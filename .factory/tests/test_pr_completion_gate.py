@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / ".factory/scripts"))
 
 from pr_completion_gate import (  # noqa: E402
-    CompletionError, parse_intent, preflight, main as gate_main,
+    CompletionError, parse_intent, preflight, supplied_issue, main as gate_main,
 )
 
 SHA = "a" * 40
@@ -139,6 +139,32 @@ class CompletionGateTests(unittest.TestCase):
         with self.assertRaises(CompletionError):
             preflight("Refs #142\nCompletes #142", head_sha=SHA,
                       fetch_issue=lambda n: issue(body=other), run=run_acceptance)
+
+    def test_token_free_issue_payload_requires_matching_number(self):
+        self.assertEqual(
+            supplied_issue({"142": issue()}, 142)["number"], 142
+        )
+        for payload in ({}, {"142": {"number": 143}}, {"142": "untrusted"}):
+            with self.assertRaises(CompletionError):
+                supplied_issue(payload, 142)
+
+    def test_completion_gate_cannot_fall_back_to_api_credentials(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            event = Path(tmp) / "event.json"
+            event.write_text(json.dumps({
+                "pull_request": {
+                    "body": "Refs #142\nCompletes #142",
+                    "head": {"sha": SHA},
+                }
+            }))
+            env = {
+                "GITHUB_EVENT_NAME": "pull_request",
+                "GITHUB_EVENT_PATH": str(event),
+                "COMPLETION_ISSUES_PATH": str(Path(tmp) / "missing.json"),
+                "GH_TOKEN": "test-token-that-must-not-be-used",
+            }
+            with mock.patch.dict(os.environ, env):
+                self.assertEqual(gate_main(), 1)
 
     def test_push_to_main_is_noop(self):
         with mock.patch.dict(os.environ, {"GITHUB_EVENT_NAME": "push"}):

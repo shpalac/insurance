@@ -113,9 +113,38 @@ jobs:
           persist-credentials: false
       - name: Install trusted schema dependencies
         run: python3 -m pip install -r .factory/requirements-dev.txt
-      - name: Verify full acceptance for PRs promising Issue closure
+      - name: Fetch PR-linked Issue metadata without running repository scripts
         env:
           GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib, re, urllib.request
+          path = os.environ.get("GITHUB_EVENT_PATH", "")
+          event = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
+          body = (event.get("pull_request") or {}).get("body") or ""
+          ids = sorted({int(s) for s in re.findall(
+              r"(?im)^\s*Completes\s+#([1-9][0-9]*)\s*$", body
+          )})
+          if len(ids) > 10:
+              raise SystemExit("Too many linked completion issues")
+          payload = {}
+          for n in ids:
+              req = urllib.request.Request(
+                  f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/issues/{n}",
+                  headers={
+                      "Authorization": "Bearer " + os.environ["GH_TOKEN"],
+                      "Accept": "application/vnd.github+json",
+                  },
+              )
+              with urllib.request.urlopen(req, timeout=20) as response:
+                  payload[str(n)] = json.load(response)
+          pathlib.Path("completion-issues.json").write_text(
+              json.dumps(payload), encoding="utf-8"
+          )
+          PY
+      - name: Verify full acceptance in a token-free step
+        env:
+          COMPLETION_ISSUES_PATH: completion-issues.json
         run: python3 .factory/scripts/pr_completion_gate.py
       - name: Preserve acceptance JUnit on completion claims
         if: always()
