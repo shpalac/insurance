@@ -103,6 +103,23 @@ class LeaseTests(unittest.TestCase):
             )
         self.assertEqual(current.phase, "blocked")
 
+    def test_blocked_lease_cannot_be_reclaimed_by_expiry(self):
+        lease = self.take()
+        for idx in range(3):
+            state = checkpoint(
+                self.store, entity=142, epoch=lease.epoch, owner=lease.owner,
+                now=NOW, branch="factory/issue-142", sha="a" * 40,
+                diff=f"new patch {idx}",
+            )
+        self.assertEqual(state.phase, "blocked")
+        with self.assertRaises(LeaseConflict):
+            self.take("another-agent", now=NOW + TTL + timedelta(seconds=1))
+        with self.assertRaises(StaleLease):
+            heartbeat(
+                self.store, entity=142, epoch=lease.epoch, owner=lease.owner,
+                now=NOW + timedelta(minutes=1), ttl=TTL,
+            )
+
     def test_allowlist_and_identity_are_enforced(self):
         lease = self.take()
         self.assertTrue(authorize(
