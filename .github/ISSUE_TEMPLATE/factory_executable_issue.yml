@@ -1,21 +1,53 @@
 name: Factory executable issue
-description: Scoped work item for an agent with verifiable acceptance
+description: CI-proven task whose completed PR closes the issue automatically
 labels: ["status:triage"]
 body:
   - type: markdown
     attributes:
-      value: "CI-only merge policy: no independent code review required. The Issue must still pass validation, tests and protected-path authorization. Issue creation does not confer ready status."
+      value: |
+        When a PR fully satisfies all acceptance criteria, use `Refs #N` and `Completes #N`.
+        Required `issue-completion` CI verifies all registered AC tests before merge.
+        After merge, the main-branch verifier writes the audit and automatically closes this Issue.
+        For a partial PR, use only `Refs #N`. No reviewer approval is required.
   - type: textarea
     id: objective
     attributes:
       label: Objective and scope
-      description: Desired outcome and exact allowed/protected paths
+      description: What needs to work, why, and which paths or interfaces can change
     validations:
       required: true
   - type: textarea
     id: acceptance
     attributes:
-      label: Runner-verifiable acceptance criteria
-      description: "Give AC-1, AC-2, etc. Each must have a deterministic hosted-runner test target and assertion."
+      label: Executable acceptance manifest
+      description: |
+        The issue ID is resolved automatically. Replace the placeholder test description, paths,
+        and command metadata with the actual criteria. The PR must register each trusted test
+        in .factory/acceptance-targets.json and emit a positive JUnit report.
+      value: |
+        ```yaml factory-acceptance-manifest
+        schema_version: "1.0"
+        issue_id: "self"
+        title: "Replace with this issue's acceptance contract"
+        scope:
+          allowed_paths: ["src/**", "tests/**"]
+          protected_paths: []
+        dependencies:
+          depends_on_issues: []
+          multi_pr_allowed: false
+        acceptance_criteria:
+          - id: "AC-1"
+            description: "A runner-executable test proves the required observable behavior."
+            verification_type: integration
+            runner_os: ubuntu-latest
+            command: "python -m unittest discover -s tests"
+            expected_exit_code: 0
+            required_report: "reports/ac-1.xml"
+            timeout_seconds: 120
+        definition_of_done:
+          require_new_or_updated_tests: true
+          min_diff_coverage_percent: 90
+          require_architecture_doc_sync: false
+        ```
     validations:
       required: true

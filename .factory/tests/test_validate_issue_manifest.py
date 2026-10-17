@@ -35,6 +35,17 @@ class ManifestTests(unittest.TestCase):
         self.assertTrue(validate_body("\x60\x60\x60yaml factory-acceptance-manifest\nissue_id: [\n\x60\x60\x60"))
         self.assertTrue(validate_body(self.body.replace("issue_id: 142", "issue_id: 142\nissue_id: 143")))
 
+    def test_self_placeholder_resolves_against_trusted_issue_number(self):
+        body = self.body.replace("issue_id: 142", 'issue_id: "self"')
+        self.assertEqual(validate_body(body, expected_issue_id=142), [])
+        self.assertTrue(validate_body(body))
+        self.assertTrue(validate_body(body, expected_issue_id=0))
+
+    def test_self_placeholder_rejects_real_self_dependency(self):
+        body = self.body.replace("issue_id: 142", 'issue_id: "self"')
+        body = body.replace("depends_on_issues: []", "depends_on_issues: [142]")
+        self.assertTrue(validate_body(body, expected_issue_id=142))
+
     def test_wrong_issue_number(self):
         self.assertTrue(validate_body(self.body, expected_issue_id=999))
 

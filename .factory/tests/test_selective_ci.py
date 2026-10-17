@@ -18,6 +18,7 @@ class ImpactAndGateTests(unittest.TestCase):
         return {
             "impact": "success",
             "policy": "success",
+            "issue_completion": "success",
             **{
                 name: "success" if selected else "skipped"
                 for name, selected in manifest["selected_jobs"].items()
@@ -79,6 +80,14 @@ class ImpactAndGateTests(unittest.TestCase):
         result = impacted(["src/insurance/core.py"], HEAD)
         statuses = self.ok_statuses(result)
         statuses["scanner"] = "failure"
+        self.assertTrue(gate_errors(result, HEAD, statuses))
+
+    def test_missing_or_skipped_issue_completion_fails(self):
+        result = impacted(["src/insurance/core.py"], HEAD)
+        statuses = self.ok_statuses(result)
+        statuses["issue_completion"] = "skipped"
+        self.assertTrue(gate_errors(result, HEAD, statuses))
+        statuses.pop("issue_completion")
         self.assertTrue(gate_errors(result, HEAD, statuses))
 
     def test_head_mismatch_fails(self):

@@ -17,8 +17,16 @@
       "const": "1.0"
     },
     "issue_id": {
-      "type": "integer",
-      "minimum": 1
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 1
+        },
+        {
+          "const": "self"
+        }
+      ],
+      "description": "Numerical Issue number, or 'self' resolved against the GitHub Issue number at verification time."
     },
     "title": {
       "type": "string",

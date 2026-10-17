@@ -97,8 +97,14 @@ def validate_manifest(
     if errors:
         return sorted(errors)
 
-    if expected_issue_id is not None and manifest["issue_id"] != expected_issue_id:
-        errors.append("Manifest issue_id does not match GitHub Issue")
+    if manifest["issue_id"] == "self":
+        if expected_issue_id is None or expected_issue_id < 1:
+            errors.append("Self-referential Issue requires trusted GitHub Issue number")
+        effective_id = expected_issue_id
+    else:
+        effective_id = manifest["issue_id"]
+        if expected_issue_id is not None and effective_id != expected_issue_id:
+            errors.append("Manifest issue_id does not match GitHub Issue")
 
     criteria = manifest["acceptance_criteria"]
     ids = [criterion["id"] for criterion in criteria]
@@ -108,7 +114,7 @@ def validate_manifest(
         errors.append("Criterion IDs must be sequential starting from AC-1")
 
     dependencies = manifest["dependencies"]["depends_on_issues"]
-    if manifest["issue_id"] in dependencies:
+    if effective_id in dependencies:
         errors.append("An Issue cannot depend on itself")
 
     for value in (

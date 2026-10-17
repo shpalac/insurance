@@ -32,3 +32,16 @@ Enable Actions' repository token permission to write Issues for this workflow as
 python3 -m pip install -r .factory/requirements-dev.txt
 python3 -m unittest discover -s .factory/tests -v
 ```
+
+## Required PR-time completion gate
+
+Every `pull_request` runs a dedicated `issue-completion` CI job as a mandatory upstream dependency of `factory-gate-preflight`.
+
+- Use `Refs #N` for a partial delivery; no closure is promised and regular CI gates still apply.
+- Add a standalone `Completes #N` alongside `Refs #N` only when every Issue acceptance criterion has a trusted registered test target, all those tests are runnable on GitHub-hosted Ubuntu, and their JUnit evidence passes on that exact PR head SHA.
+- `Completes` without `Refs`, missing/invalid Issue manifests, unknown tests, missing assertions and native `Closes/Fixes/Resolves` keywords fail CI. Issue author-supplied commands are not executed.
+- On merge, GitHub does **not** interpret `Completes` as native auto-close. The existing post-main validator reruns the tests on `main` and closes the Issue with an audit. A failed post-main run leaves it open.
+
+**Repository branch protection matters:** configure a ruleset requiring `factory-gate-preflight`, `factory-bootstrap-gate` and `unit-tests` before allowing merges. Without a required-check ruleset, GitHub can permit an owner to merge a failing PR; the completion system will still refuse to close it, but cannot prevent an unsafe merge. CI-only review policy does not disable these checks.
+
+Older Issues #2–#8 are **migration work**, not automatic green results. Each must receive a structured manifest, verified trusted test targets, and remaining missing features before close. Do not change the meaning of existing ACs just to turn their Issues green.
