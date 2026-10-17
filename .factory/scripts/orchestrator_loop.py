@@ -22,8 +22,9 @@ def prioritize(items: list[dict]) -> list[dict]:
         "main-regression": 0,
         "merge-blocker": 1,
         "failing-pr": 2,
-        "ready-issue": 3,
-        "triage-issue": 4,
+        "review-pr": 3,
+        "ready-issue": 4,
+        "triage-issue": 5,
     }
     return sorted(items, key=lambda item: (
         scores.get(item.get("kind"), 100),
@@ -55,7 +56,7 @@ def inspect_open(repo: str, token: str) -> list[dict]:
             labels = {item.get("name", "") for item in issue.get("labels", [])}
             is_pr = bool(issue.get("pull_request"))
             kind = (
-                "failing-pr" if is_pr
+                "review-pr" if is_pr
                 else "ready-issue" if "status:ready" in labels
                 else "triage-issue"
             )
@@ -63,6 +64,9 @@ def inspect_open(repo: str, token: str) -> list[dict]:
                 kind = "main-regression"
             if is_pr and "status:blocked" in labels:
                 kind = "merge-blocker"
+            elif is_pr and ("status:ci-failing" in labels
+                            or "status:changes-requested" in labels):
+                kind = "failing-pr"
             items.append({
                 "number": issue["number"], "kind": kind,
                 "url": issue.get("html_url", ""),
