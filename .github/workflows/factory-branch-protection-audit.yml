@@ -1,0 +1,23 @@
+name: Factory branch protection audit
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "41 5 * * *"
+permissions:
+  contents: read
+jobs:
+  verify-main-enforcement:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout trusted main
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Verify actual GitHub branch rules
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .factory/scripts/verify_branch_protection.py

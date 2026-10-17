@@ -51,3 +51,7 @@ Older Issues #2–#8 are **migration work**, not automatic green results. Each m
 The trusted `Factory PR acceptance traceability` workflow reacts only to successful pull-request `Factory selective CI` runs. It fetches the associated check-run jobs, verifies the PR's current head SHA, and posts/updates a single bot-owned acceptance comment listing each criterion, trusted target identity, requested runner, PR-gate result and immutable CI run URL. A partial PR is marked PARTIAL, never PASS. The privileged publisher checks out `main` only, cannot execute fork/PR code, and is not an alternative source of closure authority; `post_merge_closure.py` independently reruns all targets on `main`.
 
 PR-body edits trigger CI again so a stale green check cannot be reused to add or remove a completion claim.
+
+## Independent GitHub branch-rule enforcement audit
+
+The read-only `Factory branch protection audit` workflow checks GitHub's **effective** main rulesets or classic branch protection for the three required contexts: `unit-tests`, `factory-bootstrap-gate`, and `factory-gate-preflight`. The audit fails if GitHub does not expose complete enforced rules; it never attempts to change repository settings or relax a gate. Run it manually from Actions or inspect its daily schedule. Without a green branch-enforcement audit, do not assert that an owner cannot bypass required CI. Reviewer approval is not required by the CI-only policy.
