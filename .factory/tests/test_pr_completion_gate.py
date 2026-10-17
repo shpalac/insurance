@@ -35,10 +35,23 @@ def run_acceptance(_body, *, issue_id, head_sha, root):
 
 
 class CompletionGateTests(unittest.TestCase):
-    def test_partial_refs_have_no_closure_promise(self):
-        self.assertEqual(parse_intent("Refs #142"), ([142], []))
-        self.assertEqual(preflight("Refs #142", head_sha=SHA,
-                                   fetch_issue=lambda _: None), [])
+    def test_single_pr_issue_cannot_merge_partial_pr(self):
+        with self.assertRaisesRegex(CompletionError, "single-PR"):
+            preflight("Refs #142", head_sha=SHA, fetch_issue=issue)
+
+    def test_multi_pr_issue_can_merge_partial_pr_without_closing(self):
+        partial = BODY.replace("multi_pr_allowed: false", "multi_pr_allowed: true")
+        self.assertEqual(preflight(
+            "Refs #142", head_sha=SHA,
+            fetch_issue=lambda _: issue(body=partial)
+        ), [])
+
+    def test_unknown_or_invalid_partial_issue_blocks(self):
+        with self.assertRaises(CompletionError):
+            preflight("Refs #142", head_sha=SHA, fetch_issue=lambda _: None)
+        with self.assertRaises(CompletionError):
+            preflight("Refs #142", head_sha=SHA,
+                      fetch_issue=lambda _: issue(body="no manifest"))
 
     def test_complete_issue_requires_explicit_declaration(self):
         self.assertEqual(parse_intent("Refs #142\nCompletes #142"), ([142], [142]))

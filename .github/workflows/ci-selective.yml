@@ -123,7 +123,7 @@ jobs:
           event = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
           body = (event.get("pull_request") or {}).get("body") or ""
           ids = sorted({int(s) for s in re.findall(
-              r"(?im)^\s*Completes\s+#([1-9][0-9]*)\s*$", body
+              r"(?im)^\s*(?:Refs|Completes)\s+#([1-9][0-9]*)\s*$", body
           )})
           if len(ids) > 10:
               raise SystemExit("Too many linked completion issues")
