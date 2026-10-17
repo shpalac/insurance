@@ -100,7 +100,7 @@ jobs:
           python -m pip install -e . -r .factory/requirements-dev.txt
           python -m unittest discover -s tests -v
           python -m unittest discover -s .factory/tests -v
-  factory-gate:
+  factory-gate-preflight:
     if: always()
     needs: [impact, policy, scanner, factory, docs, macos, windows]
     runs-on: ubuntu-latest
