@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="610" viewBox="0 0 720 610" role="img" aria-labelledby="mobileTitle mobileDesc">
+<title id="mobileTitle">INSURANCE — quantitative options research</title>
+<desc id="mobileDesc">Research-only scanner banner with an illustrative physical P and risk-neutral Q distribution chart. No orders.</desc>
+<defs>
+<linearGradient id="b" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0B1020"/><stop offset="1" stop-color="#17284A"/></linearGradient>
+<linearGradient id="a" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#52E2CC"/><stop offset="1" stop-color="#9D9AFF"/></linearGradient>
+</defs>
+<rect width="720" height="610" rx="28" fill="url(#b)"/>
+<path d="M0 500H720" stroke="#6585A8" stroke-opacity=".17"/>
+<g font-family="Arial,Helvetica,sans-serif">
+<circle cx="56" cy="63" r="22" fill="#1C3D4B" stroke="#52E2CC" stroke-width="2"/>
+<path d="M46 63l7 7 15-18" fill="none" stroke="#67F2DF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="94" y="69" fill="#A4BED8" letter-spacing="2" font-size="20" font-weight="700">OPEN QUANT RESEARCH</text>
+<text x="38" y="167" fill="#F5FAFF" font-size="84" font-weight="800" letter-spacing="-3">INSURANCE<tspan fill="#52E2CC">.</tspan></text>
+<text x="40" y="219" fill="#D6E5F8" font-size="29">Risk has a price.</text>
+<text x="40" y="253" fill="#D6E5F8" font-size="29">Edge needs proof.</text>
+<rect x="40" y="284" width="233" height="42" rx="21" fill="#173B3F" stroke="#49B3A8"/>
+<text x="68" y="311" fill="#CCFFF3" font-weight="700" font-size="19">RESEARCH MODE</text>
+<rect x="286" y="284" width="233" height="42" rx="21" fill="#202D49" stroke="#5F7898"/>
+<text x="314" y="311" fill="#DCE8FF" font-weight="700" font-size="19">NO LIVE ORDERS</text>
+<rect x="37" y="354" width="646" height="213" rx="18" fill="#121F37" stroke="#47617F"/>
+<text x="61" y="391" fill="#D9E7F9" font-size="21" font-weight="700">DISTRIBUTION LENS</text>
+<text x="61" y="417" fill="#7FA5C7" font-size="15">Conceptual P and Q curves, not market data</text>
+<g stroke="#6184A9" stroke-opacity=".2"><path d="M64 456H652M64 496H652M64 536H652"/></g>
+<path d="M65 532C140 532 164 450 252 448C337 442 351 529 450 532S581 532 651 532" stroke="#A893FF" stroke-width="5" fill="none"/>
+<path d="M65 533C150 533 193 477 277 465C350 449 386 522 477 530S590 533 651 533" stroke="#57E6D0" stroke-width="5" fill="none"/>
+<text x="490" y="451" fill="#A893FF" font-size="18">Q</text>
+<text x="490" y="477" fill="#57E6D0" font-size="18">P</text>
+</g>
+</svg>

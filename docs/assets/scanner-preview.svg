@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="556" viewBox="0 0 1240 556" role="img" aria-labelledby="previewTitle previewDesc">
+<title id="previewTitle">INSURANCE scanner — verified rejection of recorded, non-real-time quotes</title>
+<desc id="previewDesc">Illustrative dashboard layout using actual October 17 2026 fixture counts: 4 quotes received, 0 eligible, 0 supported opportunities, recommendation NO TRADE. Quotes rejected for NOT_REALTIME and MISSING_QUOTE_TIME, four instances each. Not live performance.</desc>
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0A1224"/><stop offset="1" stop-color="#172747"/></linearGradient>
+<linearGradient id="accent" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#58DDC8"/><stop offset="1" stop-color="#91A9FF"/></linearGradient>
+</defs>
+<rect width="1240" height="556" rx="22" fill="url(#bg)"/>
+<g font-family="Arial, Helvetica, sans-serif">
+<circle cx="52" cy="49" r="14" fill="#143B45" stroke="#63DEC9" stroke-width="2"/>
+<path d="m45 49 5 5 9-11" fill="none" stroke="#63DEC9" stroke-width="3"/>
+<text x="80" y="56" fill="#F0F7FF" font-size="23" font-weight="700" letter-spacing="1">INSURANCE / RESEARCH CONSOLE</text>
+<rect x="962" y="27" width="248" height="42" rx="21" fill="#273148" stroke="#697F9E"/>
+<text x="993" y="53" fill="#D9E8FA" font-size="15" font-weight="700">RECORDED DATA ONLY</text>
+<path d="M30 83H1210" stroke="#6C86A9" stroke-opacity=".34"/>
+<text x="38" y="119" fill="#A3B6CF" font-size="17">2026-10-17 13:54:21 UTC   /   SPXW + XSP   /   read-only</text>
+<g>
+<rect x="34" y="141" width="374" height="125" rx="17" fill="#182942" stroke="#4B6D89"/>
+<text x="57" y="177" fill="#A2BAD1" font-size="18">QUOTES RECEIVED</text>
+<text x="57" y="235" fill="#F5FAFF" font-size="58" font-weight="700">4</text>
+<rect x="433" y="141" width="374" height="125" rx="17" fill="#182942" stroke="#4B6D89"/>
+<text x="456" y="177" fill="#A2BAD1" font-size="18">ELIGIBLE QUOTES</text>
+<text x="456" y="235" fill="#F5FAFF" font-size="58" font-weight="700">0</text>
+<rect x="832" y="141" width="374" height="125" rx="17" fill="#182942" stroke="#4B6D89"/>
+<text x="855" y="177" fill="#A2BAD1" font-size="18">VERIFIED OPPORTUNITIES</text>
+<text x="855" y="235" fill="#F5FAFF" font-size="58" font-weight="700">0</text>
+</g>
+<rect x="34" y="290" width="762" height="195" rx="16" fill="#121F34" stroke="#405978"/>
+<text x="57" y="326" fill="#D9E9F8" font-size="19" font-weight="700">DATA QUALITY / REJECTION DIAGNOSTICS</text>
+<text x="57" y="367" fill="#9DB7D1" font-size="17">NOT_REALTIME</text>
+<rect x="300" y="351" width="374" height="20" rx="8" fill="#2B3B51"/>
+<rect x="300" y="351" width="374" height="20" rx="8" fill="#DD9A68"/>
+<text x="703" y="368" fill="#E7C39E" font-size="17" font-weight="700">4 / 4</text>
+<text x="57" y="417" fill="#9DB7D1" font-size="17">MISSING_QUOTE_TIME</text>
+<rect x="300" y="401" width="374" height="20" rx="8" fill="#2B3B51"/>
+<rect x="300" y="401" width="374" height="20" rx="8" fill="#DFB27B"/>
+<text x="703" y="418" fill="#E7C39E" font-size="17" font-weight="700">4 / 4</text>
+<text x="57" y="459" fill="#788EA9" font-size="14">Counts overlap: each received quote failed both checks.</text>
+<rect x="822" y="290" width="384" height="195" rx="16" fill="#26263C" stroke="#99748B"/>
+<text x="850" y="328" fill="#C8B7CD" font-size="18">FINAL DECISION</text>
+<text x="850" y="395" fill="#FFD5DF" font-size="43" font-weight="700">NO TRADE</text>
+<text x="850" y="431" fill="#DAADBE" font-size="16">No statistically verified edge</text>
+<text x="34" y="525" fill="#8CA4C1" font-size="16">Fixture-backed visual summary · Research-only · No authenticated live orders or performance claims</text>
+</g>
+</svg>
