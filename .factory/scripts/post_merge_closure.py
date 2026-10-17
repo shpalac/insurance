@@ -122,7 +122,7 @@ def is_ancestor(api: GitHub, merge_sha: str, main_sha: str) -> bool:
 
 def linked_merged_prs(issue: int, prs: list[dict], api: GitHub, sha: str):
     """Only completed PRs targeting main with explicit Refs #N and ancestry."""
-    token = re.compile(r"(?<![A-Za-z0-9_])Refs?\s+#" + str(issue) + r"\b", re.I)
+    token = re.compile(r"(?im)^\s*Refs\s+#" + str(issue) + r"\s*$")
     found = []
     for pr in prs:
         if (not isinstance(pr, dict) or not pr.get("merged_at")
