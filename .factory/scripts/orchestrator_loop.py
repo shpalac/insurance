@@ -15,7 +15,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 REPOSITORY = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
-REFS = re.compile(r"(?m)^\\s*Refs #([1-9][0-9]*)\\s*$")
+REFS = re.compile(r"(?m)^\s*Refs #([1-9][0-9]*)\s*$")
 
 
 def prioritize(items: list[dict]) -> list[dict]:
