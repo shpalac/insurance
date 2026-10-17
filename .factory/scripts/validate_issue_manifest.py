@@ -70,9 +70,10 @@ def _safe_command(value: str) -> bool:
         return False
     if len(tokens) < 2 or any(token in DENIED_ARGS for token in tokens):
         return False
-    return tokens[:1] == ["pytest"] or tokens[:3] in (
-        ["python", "-m", "pytest"], ["python3", "-m", "pytest"]
-    )
+    return (tokens[:1] == ["pytest"] or tokens[:3] in (
+        ["python", "-m", "pytest"], ["python3", "-m", "pytest"],
+        ["python", "-m", "unittest"], ["python3", "-m", "unittest"],
+    ))
 
 
 def validate_manifest(
