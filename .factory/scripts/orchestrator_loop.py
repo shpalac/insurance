@@ -16,6 +16,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 REPOSITORY = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 REFS = re.compile(r"(?m)^\s*Refs #([1-9][0-9]*)\s*$")
+SHA = re.compile(r"^[a-f0-9]{40}$")
 
 
 def prioritize(items: list[dict]) -> list[dict]:
@@ -98,6 +99,38 @@ def plan_next(
     return None
 
 
+def _get_json(repo: str, token: str, path: str) -> dict | list:
+    if not path.startswith("/") or "://" in path:
+        raise ValueError("Invalid GitHub API path")
+    req = urllib.request.Request(
+        f"https://api.github.com/repos/{repo}{path}",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=20) as response:
+        return json.load(response)
+
+
+def classify_pull_request(pr: dict, checks: list[dict], labels: set[str]) -> str:
+    """Classify from current remote checks and merge state, not labels alone."""
+    if "priority:p0-regression" in labels:
+        return "main-regression"
+    if any(
+        check.get("status") == "completed"
+        and check.get("conclusion") == "failure"
+        for check in checks
+    ) or "status:ci-failing" in labels:
+        return "failing-pr"
+    if ("status:blocked" in labels
+            or pr.get("mergeable_state") in {"dirty", "blocked", "behind"}):
+        return "merge-blocker"
+    if "status:changes-requested" in labels:
+        return "failing-pr"
+    return "review-pr"
+
+
 def inspect_open(repo: str, token: str) -> list[dict]:
     """Fetch bounded GitHub issue/PR metadata, never execute their text."""
     if not REPOSITORY.fullmatch(repo) or not token:
@@ -108,14 +141,8 @@ def inspect_open(repo: str, token: str) -> list[dict]:
             f"https://api.github.com/repos/{repo}/issues"
             f"?state=open&per_page=100&page={page}"
         )
-        request = urllib.request.Request(
-            url, headers={
-                "Authorization": f"Bearer {token}",
-                "Accept": "application/vnd.github+json",
-            }
-        )
-        with urllib.request.urlopen(request, timeout=20) as response:
-            issues = json.load(response)
+        issues = _get_json(repo, token,
+                           f"/issues?state=open&per_page=100&page={page}")
         if not issues:
             break
         if page == 10 and len(issues) == 100:
@@ -131,13 +158,27 @@ def inspect_open(repo: str, token: str) -> list[dict]:
             body = issue.get("body") or ""
             matches = REFS.findall(body)
             linked_issue = int(matches[0]) if len(matches) == 1 else None
-            if "priority:p0-regression" in labels:
+            if is_pr:
+                pull = _get_json(repo, token, f"/pulls/{issue['number']}")
+                head = pull.get("head") or {}
+                head_repo = head.get("repo") or {}
+                head_sha = head.get("sha") or ""
+                if (head_repo.get("full_name", "").lower() == repo.lower()
+                        and SHA.fullmatch(head_sha)):
+                    check_data = _get_json(
+                        repo, token, f"/commits/{head_sha}/check-runs?per_page=100"
+                    )
+                    checks = check_data.get("check_runs", [])
+                    if (type(check_data.get("total_count")) is not int
+                            or check_data["total_count"] > 100
+                            or not isinstance(checks, list)):
+                        raise ValueError("PR check-run evidence is truncated or invalid")
+                    kind = classify_pull_request(pull, checks, labels)
+                else:
+                    # Fork code is never sent to an external agent by this controller.
+                    kind = "review-pr"
+            elif "priority:p0-regression" in labels:
                 kind = "main-regression"
-            if is_pr and "status:blocked" in labels:
-                kind = "merge-blocker"
-            elif is_pr and ("status:ci-failing" in labels
-                            or "status:changes-requested" in labels):
-                kind = "failing-pr"
             items.append({
                 "number": issue["number"], "kind": kind,
                 "url": issue.get("html_url", ""),
