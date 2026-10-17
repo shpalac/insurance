@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
@@ -14,6 +15,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 REPOSITORY = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+REFS = re.compile(r"(?m)^\\s*Refs #([1-9][0-9]*)\\s*$")
 
 
 def prioritize(items: list[dict]) -> list[dict]:
@@ -30,6 +32,47 @@ def prioritize(items: list[dict]) -> list[dict]:
         scores.get(item.get("kind"), 100),
         item.get("number", 0),
     ))
+
+
+def plan_next(
+    items: list[dict], leases: dict, *, now: datetime, max_concurrent: int
+) -> dict | None:
+    """Select one ready work item, prioritizing failures and merge blockers.
+
+    A closed Issue is absent from the open queue, so the same planner naturally
+    advances to the next eligible task after completion. Existing active leases
+    are never claimed a second time.
+    """
+    if (now.tzinfo is None or type(max_concurrent) is not int
+            or not 1 <= max_concurrent <= 32 or not isinstance(leases, dict)):
+        raise ValueError("Invalid queue planning context")
+    active = {
+        number: lease for number, lease in leases.items()
+        if lease.expires_at > now and lease.phase != "blocked"
+    }
+    if len(active) >= max_concurrent:
+        return None
+    roles = {
+        "main-regression": "ci-engineer",
+        "merge-blocker": "integrator",
+        "failing-pr": "ci-engineer",
+        "ready-issue": "planner",
+    }
+    for item in prioritize(items):
+        kind = item.get("kind")
+        if kind not in roles:
+            continue
+        issue = item.get("linked_issue")
+        if type(issue) is not int or issue < 1 or issue in active:
+            continue
+        return {
+            "issue": issue,
+            "source_number": item.get("number"),
+            "kind": kind,
+            "role": roles[kind],
+            "reason": "priority_queue_eligible",
+        }
+    return None
 
 
 def inspect_open(repo: str, token: str) -> list[dict]:
@@ -60,6 +103,9 @@ def inspect_open(repo: str, token: str) -> list[dict]:
                 else "ready-issue" if "status:ready" in labels
                 else "triage-issue"
             )
+            body = issue.get("body") or ""
+            matches = REFS.findall(body)
+            linked_issue = int(matches[0]) if len(matches) == 1 else None
             if "priority:p0-regression" in labels:
                 kind = "main-regression"
             if is_pr and "status:blocked" in labels:
@@ -70,6 +116,10 @@ def inspect_open(repo: str, token: str) -> list[dict]:
             items.append({
                 "number": issue["number"], "kind": kind,
                 "url": issue.get("html_url", ""),
+                "is_pr": is_pr,
+                "linked_issue": linked_issue if is_pr else issue["number"],
+                "labels": sorted(labels),
+                "updated_at": issue.get("updated_at", ""),
             })
     return prioritize(items)
 
@@ -86,9 +136,14 @@ def main(argv: list[str] | None = None) -> int:
     repo = os.environ.get("GITHUB_REPOSITORY", "")
     token = os.environ.get("GITHUB_TOKEN", "")
     items = inspect_open(repo, token)
+    plan = plan_next(
+        items, {}, now=datetime.now(timezone.utc),
+        max_concurrent=config["orchestration"]["max_concurrent_agents"],
+    )
     print(json.dumps({
         "mode": "read-only",
         "autonomous_dispatch": False,
+        "next_candidate": plan,
         "queue": items[:50],
         "backlog_total": len(items),
     }, indent=2))
