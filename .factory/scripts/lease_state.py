@@ -77,6 +77,8 @@ def acquire(
     if now.tzinfo is None or ttl.total_seconds() <= 0:
         raise ValueError("UTC-aware now and positive TTL required")
     current = store.read(entity)
+    if current is not None and current.phase == "blocked":
+        raise LeaseConflict("Blocked lease requires independent replan")
     if current is not None and current.expires_at > now:
         raise LeaseConflict(f"Active lease held by {current.owner}")
     previous_revision = current.revision if current else 0
@@ -86,6 +88,8 @@ def acquire(
         phase="claimed", expires_at=now + ttl, heartbeat_at=now,
         branch=(current.branch if current else ""),
         commit_sha=(current.commit_sha if current else ""),
+        attempts=(current.attempts if current else 0),
+        diff_hashes=(current.diff_hashes if current else ()),
     )
     if not store.cas(entity, previous_revision, new):
         raise LeaseConflict("Concurrent lease revision lost compare-and-swap")
@@ -97,7 +101,8 @@ def _require_current(
 ) -> Lease:
     current = store.read(entity)
     if (current is None or current.epoch != epoch
-            or current.owner != owner or current.expires_at <= now):
+            or current.owner != owner or current.expires_at <= now
+            or current.phase == "blocked"):
         raise StaleLease("Worker lease expired, transferred, or revoked")
     return current
 
@@ -135,7 +140,7 @@ def checkpoint(
     ).hexdigest()
     repeated = normalized_hash in current.diff_hashes
     attempts = current.attempts + 1
-    blocked = repeated or attempts > max_repairs
+    blocked = repeated or attempts >= max_repairs
     new = replace(
         current, revision=current.revision + 1,
         branch=branch, commit_sha=sha, attempts=attempts,
