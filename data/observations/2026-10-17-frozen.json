@@ -1,0 +1,80 @@
+{
+  "as_of": "2026-10-17T13:54:21.995Z",
+  "source": "Read-only IBKR connector, October 17 2026; bid/ask reception timestamps not provided; all data FROZEN_DELAYED",
+  "underlyings": {
+    "SPX": {
+      "spot": 7658.74,
+      "spot_time": null,
+      "market_data_status": "FROZEN_DELAYED",
+      "closes": []
+    },
+    "XSP": {
+      "spot": 765.87,
+      "spot_time": null,
+      "market_data_status": "FROZEN_DELAYED",
+      "closes": []
+    }
+  },
+  "options": [
+    {
+      "root": "SPX",
+      "trading_class": "SPXW",
+      "expiration": "2026-11-20",
+      "settlement": "PM",
+      "right": "P",
+      "strike": 7500,
+      "bid": 82.7,
+      "ask": 84.3,
+      "bid_size": 1,
+      "ask_size": 1,
+      "market_data_status": "FROZEN_DELAYED",
+      "quote_time": null,
+      "multiplier": 100
+    },
+    {
+      "root": "XSP",
+      "trading_class": "XSP",
+      "expiration": "2026-11-20",
+      "settlement": "PM",
+      "right": "P",
+      "strike": 750,
+      "bid": 7.72,
+      "ask": 9.01,
+      "bid_size": 72,
+      "ask_size": 72,
+      "market_data_status": "FROZEN_DELAYED",
+      "quote_time": null,
+      "multiplier": 100
+    },
+    {
+      "root": "XSP",
+      "trading_class": "XSP",
+      "expiration": "2026-11-20",
+      "settlement": "PM",
+      "right": "P",
+      "strike": 770,
+      "bid": 13.05,
+      "ask": 15.13,
+      "bid_size": 30,
+      "ask_size": 32,
+      "market_data_status": "FROZEN_DELAYED",
+      "quote_time": null,
+      "multiplier": 100
+    },
+    {
+      "root": "XSP",
+      "trading_class": "XSP",
+      "expiration": "2026-11-20",
+      "settlement": "PM",
+      "right": "C",
+      "strike": 770,
+      "bid": 11.81,
+      "ask": 13.12,
+      "bid_size": 60,
+      "ask_size": 65,
+      "market_data_status": "FROZEN_DELAYED",
+      "quote_time": null,
+      "multiplier": 100
+    }
+  ]
+}

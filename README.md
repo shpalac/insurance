@@ -69,3 +69,9 @@ SPX regular monthly (AM) and SPXW (PM) are different contracts. XSP is PM-settle
 **Fail-closed policy:** unsupported/incomplete data, unavailable execution prices, unverifiable model uncertainty, or failing risk constraints yield **NO TRADE**. A positive modeled expected value is not sufficient.
 
 Reference contract rules: [Cboe SPX/XSP specifications](https://www.cboe.com/tradable_products/sp_500/spx_weekly_options/specifications). Consult specific contract settlement calendars before trading.
+
+## Captured first scan
+
+The read-only IBKR connector returned SPX/XSP chain identifiers, 251 daily SPX observations, and frozen/delayed option bid/ask observations on October 17, 2026. A sample of the **actual quoted figures** is preserved in `data/observations/2026-10-17-frozen.json` with *null* quote times because the connector returned last-trade timestamps, **not** bid/ask quote timestamps. The scanner rejects these values and emits **NO TRADE**. This does not imply any live edge.
+
+For fresh data, both underlying spot and option quotes require distinct timestamp and data-type validation. Installing a read-only Gateway/TWS collector and a continuously running host remains necessary.

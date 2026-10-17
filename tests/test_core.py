@@ -39,18 +39,25 @@ class TestScanner(unittest.TestCase):
     def test_frozen_quotes_are_rejected(self):
         q = quote(750, status="FROZEN_DELAYED")
         result = scan_snapshot({
-            "as_of": NOW.isoformat(), "underlyings": {"XSP": {"spot": 760, "closes": self.closes}},
+            "as_of": NOW.isoformat(), "underlyings": {"XSP": {"spot": 760, "closes": self.closes, "market_data_status": "REALTIME", "spot_time": NOW.isoformat()}},
             "options": [record(q)],
         }, self.config)
         self.assertEqual(result["market_data_eligible"], 0)
         self.assertEqual(result["recommendation"], "NO TRADE")
         self.assertEqual(result["rejection_counts"]["NOT_REALTIME"], 1)
 
+    def test_missing_quote_time_rejected(self):
+        item = record(quote(750))
+        item["quote_time"] = None
+        result = scan_snapshot({"as_of": NOW.isoformat(), "options": [item]}, self.config)
+        self.assertEqual(result["market_data_eligible"], 0)
+        self.assertEqual(result["rejection_counts"]["MISSING_QUOTE_TIME"], 1)
+
     def test_stale_quote_rejected(self):
         q = record(quote(750))
         q["quote_time"] = (NOW - timedelta(minutes=10)).isoformat()
         result = scan_snapshot({
-            "as_of": NOW.isoformat(), "underlyings": {"XSP": {"spot": 760, "closes": self.closes}},
+            "as_of": NOW.isoformat(), "underlyings": {"XSP": {"spot": 760, "closes": self.closes, "market_data_status": "REALTIME", "spot_time": NOW.isoformat()}},
             "options": [q],
         }, self.config)
         self.assertEqual(result["market_data_eligible"], 0)
@@ -74,7 +81,7 @@ class TestScanner(unittest.TestCase):
     def test_unverified_never_promoted(self):
         options = [record(quote(750, bid=5, ask=5.2)), record(quote(760, bid=10, ask=10.2))]
         result = scan_snapshot({
-            "as_of": NOW.isoformat(), "underlyings": {"XSP": {"spot": 755, "closes": self.closes}},
+            "as_of": NOW.isoformat(), "underlyings": {"XSP": {"spot": 755, "closes": self.closes, "market_data_status": "REALTIME", "spot_time": NOW.isoformat()}},
             "options": options,
         }, self.config)
         self.assertGreater(len(result["sell_insurance"]), 0)
@@ -83,9 +90,19 @@ class TestScanner(unittest.TestCase):
         self.assertEqual(result["supported_opportunities"], [])
         self.assertEqual(result["recommendation"], "NO TRADE")
 
+    def test_unverified_spot_is_rejected(self):
+        item = record(quote(750))
+        result = scan_snapshot({
+            "as_of": NOW.isoformat(),
+            "options": [item],
+            "underlyings": {"XSP": {"spot": 755, "closes": self.closes}}
+        }, self.config)
+        self.assertEqual(result["market_data_eligible"], 0)
+        self.assertIn("INVALID_UNDERLYING_QUOTE", result["rejection_counts"])
+
     def test_insufficient_history_never_promoted(self):
         result = scan_snapshot({
-            "as_of": NOW.isoformat(), "underlyings": {"XSP": {"spot": 755, "closes": [755.0] * 4}},
+            "as_of": NOW.isoformat(), "underlyings": {"XSP": {"spot": 755, "closes": [755.0] * 4, "market_data_status": "REALTIME", "spot_time": NOW.isoformat()}},
             "options": [record(quote(760))],
         }, self.config)
         self.assertEqual(result["buy_insurance"], [])

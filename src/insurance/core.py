@@ -56,7 +56,7 @@ class Quote:
     ask: float
     bid_size: int
     ask_size: int
-    quote_time: datetime
+    quote_time: datetime | None
     market_data_status: str
     multiplier: int = MULTIPLIER
 
@@ -73,7 +73,7 @@ class Quote:
             ask=float(item["ask"]),
             bid_size=int(item["bid_size"]),
             ask_size=int(item["ask_size"]),
-            quote_time=parse_time(item["quote_time"]),
+            quote_time=parse_time(item["quote_time"]) if item.get("quote_time") else None,
             market_data_status=str(item["market_data_status"]).upper(),
             multiplier=int(item.get("multiplier", MULTIPLIER)),
         )
@@ -95,9 +95,12 @@ class Quote:
             problems.append("DTE_OUT_OF_RANGE")
         if self.market_data_status != "REALTIME":
             problems.append("NOT_REALTIME")
-        age = (as_of - self.quote_time).total_seconds()
-        if not 0 <= age <= config.max_quote_age_seconds:
-            problems.append("STALE_OR_FUTURE_QUOTE")
+        if self.quote_time is None:
+            problems.append("MISSING_QUOTE_TIME")
+        else:
+            age = (as_of - self.quote_time).total_seconds()
+            if not 0 <= age <= config.max_quote_age_seconds:
+                problems.append("STALE_OR_FUTURE_QUOTE")
         if not all(math.isfinite(x) for x in (self.strike, self.bid, self.ask)):
             problems.append("NONFINITE_PRICE")
         elif self.strike <= 0 or self.bid < 0 or self.ask <= 0 or self.bid > self.ask:
@@ -251,7 +254,7 @@ def compute_candidate(strategy: Strategy, terminals: list[float], config: Settin
         "legs": [
             {"action": ("SELL" if leg == strategy.short else "BUY"), "right": leg.right,
              "strike": leg.strike, "bid": leg.bid, "ask": leg.ask,
-             "quote_time": leg.quote_time.isoformat()}
+             "quote_time": leg.quote_time.isoformat() if leg.quote_time else None}
             for leg in strategy.legs
         ],
         "premium_per_unit": round(premium, 4),
@@ -284,7 +287,30 @@ def scan_snapshot(snapshot: dict[str, Any], config: Settings | None = None) -> d
                 rejected[problem] = rejected.get(problem, 0) + 1
         else:
             good.append(quote)
-    good = list({(q.root, q.trading_class, q.expiration, q.right, q.strike): q for q in good}.values())
+    # Reject index spots without independent fresh, verified market data.
+    checked_roots: dict[str, bool] = {}
+    def spot_is_fresh(root: str) -> bool:
+        if root not in checked_roots:
+            data = snapshot.get("underlyings", {}).get(root, {})
+            try:
+                spot_time = parse_time(data["spot_time"])
+                age = (as_of - spot_time).total_seconds()
+                checked_roots[root] = (
+                    data.get("market_data_status") == "REALTIME"
+                    and 0 <= age <= config.max_quote_age_seconds
+                    and math.isfinite(float(data["spot"]))
+                    and float(data["spot"]) > 0
+                )
+            except (KeyError, TypeError, ValueError):
+                checked_roots[root] = False
+        return checked_roots[root]
+    eligible = []
+    for q in good:
+        if spot_is_fresh(q.root):
+            eligible.append(q)
+        else:
+            rejected["INVALID_UNDERLYING_QUOTE"] = rejected.get("INVALID_UNDERLYING_QUOTE", 0) + 1
+    good = list({(q.root, q.trading_class, q.expiration, q.right, q.strike): q for q in eligible}.values())
     strategies = generate_strategies(good, config)
     cache: dict[tuple, list[float] | None] = {}
     opportunities: list[dict[str, Any]] = []

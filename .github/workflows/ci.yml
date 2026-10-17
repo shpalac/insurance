@@ -22,3 +22,5 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: CLI help
         run: insurance --help
+      - name: Verify actual IBKR frozen snapshot is rejected
+        run: insurance --snapshot data/observations/2026-10-17-frozen.json --database /tmp/insurance-ci.db
