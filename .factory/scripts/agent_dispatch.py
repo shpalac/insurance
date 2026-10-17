@@ -96,14 +96,22 @@ class WebhookBackend:
         return receipt
 
 
-def _workflow_is_trusted(event: dict) -> bool:
+def _workflow_is_trusted(event: dict, repo: str) -> bool:
     run = event.get("workflow_run") if isinstance(event, dict) else None
+    if not isinstance(run, dict):
+        return False
+    if run.get("name") == "Factory orchestration diagnostics":
+        return (
+            run.get("event") in {"issues", "schedule"}
+            and run.get("head_branch") == "main"
+            and run.get("conclusion") == "success"
+        )
+    head_repo = run.get("head_repository") or {}
     return (
-        isinstance(run, dict)
-        and run.get("name") == "Factory orchestration diagnostics"
-        and run.get("event") in {"issues", "schedule"}
-        and run.get("head_branch") == "main"
-        and run.get("conclusion") == "success"
+        run.get("name") == "Factory selective CI"
+        and run.get("event") == "pull_request"
+        and run.get("conclusion") == "failure"
+        and head_repo.get("full_name", "").lower() == repo.lower()
     )
 
 
@@ -124,7 +132,7 @@ def main() -> int:
 
     try:
         event = json.loads(Path(event_path).read_text(encoding="utf-8"))
-        if not _workflow_is_trusted(event):
+        if not _workflow_is_trusted(event, repo):
             print(json.dumps({"status": "disabled", "reason": "untrusted_trigger"}))
             return 0
 
@@ -141,10 +149,14 @@ def main() -> int:
             print(json.dumps({"status": "disabled", "reason": "identity_or_provider_not_approved"}))
             return 0
 
-        main_sha = event["workflow_run"].get("head_sha", "")
+        store = GitHubRefLeaseStore(repo, app_token, write_enabled=True)
+        run = event["workflow_run"]
+        if run.get("name") == "Factory orchestration diagnostics":
+            main_sha = run.get("head_sha", "")
+        else:
+            main_sha = store.call("GET", "/branches/main").get("commit", {}).get("sha", "")
         if not SHA.fullmatch(main_sha):
             raise DispatchDenied("Trusted workflow has no immutable main SHA")
-        store = GitHubRefLeaseStore(repo, app_token, write_enabled=True)
         now = datetime.now(timezone.utc)
 
         # An already-closed issue releases its active lease via the same CAS
