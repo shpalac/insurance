@@ -101,3 +101,7 @@ insurance --snapshot data/snapshots/ibkr.json --loop --interval 300
 ~~~
 
 Run collector and scanner in separate processes. This collector is deliberately limited to 9:30 a.m.–4:00 p.m. US Eastern on weekdays, without a full holiday calendar: holiday data still fails freshness tests if missing. IBKR delayed/frozen quotes are rejected, including on weekends; an IBKR last-trade timestamp is **not** accepted as a substitute for an executable quote. Future work: prove broker quote timestamps with tick-by-tick bid/ask reception, adopt the exchange calendar and GTH, reduce polling by streaming, test reconnects and broker entitlements.
+
+## Verified Issue closure
+
+A merged `Refs #N` PR triggers audited acceptance verification via [the post-merge closure workflow](docs/factory/post-merge-closure.md). **Issues close only if every registered acceptance criterion passes against `main` and mandatory CI succeeds.** Partial implementation, missing acceptance manifests, unregistered test targets and unsupported runners remain open. Independent review is optional; no live trading is authorized.
