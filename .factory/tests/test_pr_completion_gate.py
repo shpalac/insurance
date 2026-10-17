@@ -23,15 +23,15 @@ def issue(number=142, *, body=BODY):
     return {"number": number, "state": "open", "body": body}
 
 
-def run_acceptance(_body, *, issue_id, head_sha, root):
+def run_acceptance(_body, *, issue_id, head_sha, root, criteria_subset=None):
     if issue_id != 142 or head_sha != SHA:
         raise AssertionError("Incorrect acceptance target")
-    return [
+    return [r for r in [
         {"id": "AC-1", "status": "PASS", "head_sha": SHA, "testcases": 2,
          "assertions": 3},
         {"id": "AC-2", "status": "PASS", "head_sha": SHA, "testcases": 1,
          "assertions": 1},
-    ]
+    ] if criteria_subset is None or r["id"] in criteria_subset]
 
 
 class CompletionGateTests(unittest.TestCase):
