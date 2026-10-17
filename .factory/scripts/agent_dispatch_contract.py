@@ -49,7 +49,8 @@ class Backend(Protocol):
 
     Implementations must durably deduplicate by envelope["idempotency_key"].
     Repeated submissions with the same key return the original receipt and
-    must not create a second worker, branch, pull request, or status update.
+    resume from the latest durable checkpoint. They must not create a second
+    worker, branch, pull request, or status update.
     """
     def submit(self, *, provider: str, envelope: dict) -> str: ...
 
