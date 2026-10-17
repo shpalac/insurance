@@ -19,7 +19,7 @@ def emit():
     path = ROOT / "reports" / "ac-2.xml"
     path.parent.mkdir(parents=True, exist_ok=True)
     suite = ET.Element("testsuite", tests="1", failures="0", errors="0",
-                       skipped="0", assertions="8")
+                       skipped="0", assertions="13")
     ET.SubElement(suite, "testcase", classname="Issue45AC2",
                   name="test_ac_2_checkpoint_survives_resume_and_completion_is_once")
     ET.ElementTree(suite).write(path, encoding="utf-8", xml_declaration=True)
