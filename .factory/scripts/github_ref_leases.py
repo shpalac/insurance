@@ -111,11 +111,62 @@ class GitHubRefLeaseStore:
         file = self.call("GET", f"/contents/{self.FILE}?ref={sha}")
         if file.get("encoding") != "base64":
             raise StateError("Missing/unsupported lease state object")
-        decoded = base64.b64decode(file["content"], validate=False)
+        decoded = base64.b64decode(file["content"], validate=True)
         data = json.loads(decoded)
         if data.get("version") != 1 or not isinstance(data.get("leases"), dict):
             raise StateError("Unexpected versioned lease map")
         return sha, tree, data
+
+    def initialize_isolated(self) -> bool:
+        """Create a fresh orphan test ref only; never initialize production implicitly.
+
+        Returns False when the exact isolated ref already exists. Leaves the
+        write-disabled production branch untouched.
+        """
+        if not self.write_enabled or not re.fullmatch(
+            r"factory-lease-canary-[1-9][0-9]*", self.branch
+        ):
+            raise StateError("Isolated canary write capability is not enabled")
+        body = json.dumps({"version": 1, "leases": {}}, sort_keys=True)
+        tree = self.call("POST", "/git/trees", {"tree": [{
+            "path": self.FILE, "mode": "100644", "type": "blob",
+            "content": body,
+        }]})
+        tree_sha = tree.get("sha")
+        if not isinstance(tree_sha, str) or not SHA.fullmatch(tree_sha):
+            raise StateError("Unable to initialize canary tree")
+        commit = self.call("POST", "/git/commits", {
+            "message": "factory: initialize isolated lease canary",
+            "tree": tree_sha, "parents": [],
+        })
+        sha = commit.get("sha")
+        if not isinstance(sha, str) or not SHA.fullmatch(sha):
+            raise StateError("Unable to initialize canary commit")
+        try:
+            self.call("POST", "/git/refs", {
+                "ref": f"refs/heads/{self.branch}", "sha": sha,
+            })
+        except error.HTTPError as exc:
+            if exc.code == 422:
+                self.snapshot()  # Must be readable and structurally valid.
+                return False
+            raise
+        return True
+
+    def read_all(self) -> dict[int, Lease]:
+        """Read a complete lease map from one immutable ref snapshot."""
+        _, _, state = self.snapshot()
+        if len(state["leases"]) > 10000:
+            raise StateError("Lease capacity bound exceeded")
+        leases = {}
+        for raw, entry in state["leases"].items():
+            if not isinstance(raw, str) or not re.fullmatch(r"[1-9][0-9]*", raw):
+                raise StateError("Unsafe lease entity key")
+            lease = deserialize(entry)
+            if lease.entity != int(raw):
+                raise StateError("Entity differs from lease map key")
+            leases[int(raw)] = lease
+        return leases
 
     def read(self, entity: int) -> Lease | None:
         if type(entity) is not int or entity < 1:
