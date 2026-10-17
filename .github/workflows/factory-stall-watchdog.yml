@@ -1,0 +1,53 @@
+name: Factory worker idle watchdog
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+permissions:
+  contents: read
+concurrency:
+  group: insurance-worker-idle-watchdog
+  cancel-in-progress: false
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Scan trusted GitHub lease and commit evidence without writes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STALL_THRESHOLD_MINUTES: ${{ vars.FACTORY_STALL_THRESHOLD_MINUTES || '45' }}
+        run: python3 .factory/scripts/stall_watchdog.py --mode scan --threshold-minutes "$STALL_THRESHOLD_MINUTES" --output reports/factory-worker-idle-v1.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: factory-worker-idle-v1
+          path: reports/factory-worker-idle-v1.json
+          retention-days: 90
+  report:
+    needs: [detect]
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: factory-worker-idle-v1
+          path: reports
+      - name: Publish deduplicated status comments only
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .factory/scripts/stall_watchdog.py --mode publish --report reports/factory-worker-idle-v1.json
