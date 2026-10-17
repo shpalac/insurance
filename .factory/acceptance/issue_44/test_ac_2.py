@@ -13,6 +13,9 @@ class Acceptance(unittest.TestCase):
         roles={"branch_push":"developer","ci_repair":"ci-engineer",
                "issue_transition":"validator","integrator_merge":"integrator"}
         self.assertEqual(set(roles),set(ACTION_ROLE))
+        integrator=(ROOT/".factory/scripts/pr_merge_coordinator.py").read_text()
+        self.assertIn("live_integrator_fence(api, latest, repo)",integrator)
+        self.assertIn("active_integrator_lease_required",integrator)
         for idx,(action,role) in enumerate(roles.items()):
             with self.subTest(action=action):
                 store=InMemoryLeaseStore()
