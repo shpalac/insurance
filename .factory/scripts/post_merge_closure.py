@@ -21,7 +21,8 @@ import sys
 from urllib import error, parse, request
 
 from integration_policy import closure_progress
-from run_acceptance_manifest import AcceptanceError, run_criteria
+from acceptance_discovery import DiscoveryError, available_criteria
+from run_acceptance_manifest import AcceptanceError, load_targets, run_criteria
 from validate_issue_manifest import extract_manifest, validate_body
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -167,6 +168,17 @@ def prepare(api: GitHub, sha: str, run_id: int, *, run=run_criteria):
         if not errors:
             manifest = extract_manifest(body)
             item["criteria"] = [ac["id"] for ac in manifest["acceptance_criteria"]]
+            # Report unimplemented ACs in a durable artifact for autonomous
+            # triage; no Issue-authored code or commands run during discovery.
+            try:
+                available = available_criteria(
+                    ROOT, number, item["criteria"], load_targets(ROOT)
+                )
+                item["missing_criteria"] = [
+                    ac for ac in item["criteria"] if ac not in available
+                ]
+            except (DiscoveryError, OSError, ValueError):
+                item["missing_criteria"] = list(item["criteria"])
             if any(ac["runner_os"] != "ubuntu-latest"
                    for ac in manifest["acceptance_criteria"]):
                 item["reason"] = "unsupported_runner_pending_hosted_verification"
@@ -225,17 +237,27 @@ def blocked_message(item: dict, sha: str) -> str:
         "acceptance_incomplete_or_untrusted_target",
     }:
         raise ReconcileError("Untrusted blocking reason")
-    return (
-        f"{STATUS_MARKER}\n"
-        "Post-merge completion remains **blocked**; the Issue is intentionally open.\n\n"
-        f"- Verification main SHA: {sha}\n"
-        f"- Reason: \`{reason}\`\n"
-        "- The linked PR has merged, but the complete executable acceptance contract "
-        "has not been verified on the current default branch.\n"
-        "- No independent review is required. Passing all registered acceptance "
-        "criteria and default-branch CI is required.\n"
+    missing = item.get("missing_criteria", [])
+    if (not isinstance(missing, list) or len(missing) > 100
+            or any(not re.fullmatch(r"AC-[1-9][0-9]*", ac)
+                   for ac in missing if isinstance(ac, str))
+            or any(not isinstance(ac, str) for ac in missing)):
+        raise ReconcileError("Unsafe missing-criteria diagnostics")
+    details = (
+        "- Missing acceptance implementations: " + ", ".join(missing) + "\\n"
+        if missing else ""
     )
-
+    return (
+        f"{STATUS_MARKER}\\n"
+        "Post-merge completion remains **blocked**; the Issue is intentionally open.\\n\\n"
+        f"- Verification main SHA: {sha}\\n"
+        f"- Reason: `{reason}`\\n"
+        + details
+        + "- The linked PR has merged, but the complete executable acceptance contract "
+        "has not been verified on the current default branch.\\n"
+        "- CI-only review policy waives independent review, not acceptance tests.\\n"
+        "- Implement every missing criterion in .factory/acceptance/issue_N/test_ac_K.py.\\n"
+    )
 
 def apply(api: GitHub, sha: str, plan: dict):
     if plan.get("schema_version") != 1 or plan.get("main_sha") != sha:
