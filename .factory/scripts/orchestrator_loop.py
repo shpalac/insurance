@@ -57,6 +57,10 @@ def plan_next(
         "failing-pr": "ci-engineer",
         "ready-issue": "planner",
     }
+    open_issue_ids = {
+        item.get("number") for item in items
+        if not item.get("is_pr") and type(item.get("number")) is int
+    }
     ordered = prioritize(items)
     # Re-deliver the same active lease/checkpoint first. The backend's stable
     # idempotency key must resume the existing worker, never create a duplicate.
@@ -81,7 +85,7 @@ def plan_next(
         if kind not in roles:
             continue
         issue = item.get("linked_issue")
-        if type(issue) is not int or issue < 1 or issue in active:
+        if type(issue) is not int or issue < 1 or issue not in open_issue_ids or issue in active:
             continue
         return {
             "issue": issue,
