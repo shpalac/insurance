@@ -48,7 +48,7 @@ def plan_next(
         raise ValueError("Invalid queue planning context")
     active = {
         number: lease for number, lease in leases.items()
-        if lease.expires_at > now and lease.phase != "blocked"
+        if lease.expires_at > now and lease.phase not in {"blocked", "completed", "cancelled"}
     }
     if len(active) >= max_concurrent:
         return None
