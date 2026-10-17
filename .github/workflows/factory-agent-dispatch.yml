@@ -36,4 +36,7 @@ jobs:
           FACTORY_AGENT_PROVIDER: ${{ vars.FACTORY_AGENT_PROVIDER || '' }}
           FACTORY_AGENT_ENDPOINT: ${{ secrets.FACTORY_AGENT_ENDPOINT }}
           FACTORY_AGENT_LOGIN: ${{ vars.FACTORY_AGENT_LOGIN || '' }}
+          FACTORY_AGENT_TOKEN_PLANNER: ${{ secrets.FACTORY_AGENT_TOKEN_PLANNER }}
+          FACTORY_AGENT_TOKEN_CI_ENGINEER: ${{ secrets.FACTORY_AGENT_TOKEN_CI_ENGINEER }}
+          FACTORY_AGENT_TOKEN_INTEGRATOR: ${{ secrets.FACTORY_AGENT_TOKEN_INTEGRATOR }}
         run: python3 .factory/scripts/agent_dispatch.py
