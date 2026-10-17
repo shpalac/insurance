@@ -4,6 +4,7 @@ repository:
   visibility: "public"
   issue_reference_mode: "refs"
   merge_strategy: "squash_auto_merge"
+  review_policy: "ci_only"
   protected_paths:
     - ".github/workflows/**"
     - ".factory/**"
