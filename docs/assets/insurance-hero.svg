@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="360" viewBox="0 0 1240 360" role="img" aria-labelledby="heroTitle heroDescription">
+<title id="heroTitle">INSURANCE — Quantitative options research</title>
+<desc id="heroDescription">A dark navy visual banner with the INSURANCE wordmark, the statement Risk has a price. Edge needs proof., and abstract conceptual P and Q distribution curves. Research mode only, no automated orders.</desc>
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%" stop-color="#0B1020"/>
+    <stop offset="55%" stop-color="#121B36"/>
+    <stop offset="100%" stop-color="#0A142B"/>
+  </linearGradient>
+  <radialGradient id="glow" cx="75%" cy="45%" r="62%">
+    <stop offset="0%" stop-color="#223E6A" stop-opacity=".62"/>
+    <stop offset="100%" stop-color="#0B1020" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="p-fill" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#61E6D4" stop-opacity=".38"/>
+    <stop offset="100%" stop-color="#61E6D4" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="q-fill" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#A68BFF" stop-opacity=".31"/>
+    <stop offset="100%" stop-color="#A68BFF" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%" stop-color="#4FDAC7"/>
+    <stop offset="100%" stop-color="#8C9EFF"/>
+  </linearGradient>
+  <clipPath id="round"><rect width="1240" height="360" rx="20"/></clipPath>
+</defs>
+<g clip-path="url(#round)">
+  <rect width="1240" height="360" fill="url(#bg)"/>
+  <rect width="1240" height="360" fill="url(#glow)"/>
+  <path d="M0 318 H1240" stroke="#7386AD" stroke-opacity=".12"/>
+  <path d="M0 1 H1240 M1 0 V360 M1239 0 V360" stroke="#7386AD" stroke-opacity=".13"/>
+  <circle cx="1158" cy="-45" r="190" fill="none" stroke="#657EAE" stroke-opacity=".10"/>
+  <circle cx="1158" cy="-45" r="245" fill="none" stroke="#657EAE" stroke-opacity=".08"/>
+  <circle cx="1158" cy="-45" r="305" fill="none" stroke="#657EAE" stroke-opacity=".06"/>
+
+  <g transform="translate(66 59)">
+    <rect width="49" height="49" rx="15" fill="#162C45" stroke="#48C9C0" stroke-opacity=".55"/>
+    <path d="M24.5 9 L38 15 V26 C38 36 31 41 24.5 45 C18 41 11 36 11 26 V15 Z" fill="none" stroke="#71EAD6" stroke-width="2.1" stroke-linejoin="round"/>
+    <path d="M16 28 L22 23 L27 27 L34 18" fill="none" stroke="#8C9EFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="129" y="89" fill="#9CB5D0" font-size="13" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-weight="700" letter-spacing="3.2">OPEN QUANT RESEARCH</text>
+
+  <text x="66" y="178" fill="#F4F8FF" font-size="65" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-weight="800" letter-spacing="-2.9">INSURANCE<tspan fill="#55E4D2">.</tspan></text>
+  <text x="68" y="220" fill="#C5D1E7" font-size="23" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-weight="400">Risk has a price. Edge needs proof.</text>
+  <text x="68" y="257" fill="#8498BB" font-size="15" font-family="system-ui, -apple-system, Segoe UI, sans-serif">An evidence-first scanner for index-option insurance.</text>
+  <rect x="67" y="287" width="188" height="33" rx="16.5" fill="#17333D" stroke="#3B776F"/>
+  <circle cx="86" cy="303.5" r="4.6" fill="#60E3CB"/>
+  <text x="99" y="308.5" fill="#CFF9EE" font-size="12" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-weight="700" letter-spacing="1.1">RESEARCH MODE</text>
+  <rect x="267" y="287" width="186" height="33" rx="16.5" fill="#1C283E" stroke="#40516B"/>
+  <text x="287" y="308.5" fill="#C4CEE1" font-size="12" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-weight="650" letter-spacing="1.0">NO LIVE ORDERS</text>
+
+  <g transform="translate(708 38)">
+    <rect x="0" y="0" width="461" height="281" rx="17" fill="#111D35" fill-opacity=".87" stroke="#60799D" stroke-opacity=".26"/>
+    <text x="27" y="30" fill="#D8E2F5" font-size="13" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-weight="700" letter-spacing="1.4">DISTRIBUTION LENS</text>
+    <text x="27" y="52" fill="#8296B8" font-size="11" font-family="system-ui, -apple-system, Segoe UI, sans-serif">Conceptual visualization — not live market data</text>
+    <g stroke="#7A91B9" stroke-opacity=".12" stroke-width="1">
+      <path d="M27 93 H434 M27 129 H434 M27 165 H434 M27 201 H434 M27 237 H434"/>
+      <path d="M92 80 V239 M162 80 V239 M232 80 V239 M302 80 V239 M372 80 V239"/>
+    </g>
+    <path d="M28 240 C70 238 103 231 134 208 C174 174 179 104 231 98 C278 91 288 181 341 208 C375 227 408 237 433 240 L433 241 L28 241 Z" fill="url(#q-fill)"/>
+    <path d="M28 240 C68 237 89 224 114 208 C162 177 180 134 219 124 C265 114 293 164 324 196 C365 232 396 238 433 240 L433 241 L28 241 Z" fill="url(#p-fill)"/>
+    <path d="M28 240 C70 238 103 231 134 208 C174 174 179 104 231 98 C278 91 288 181 341 208 C375 227 408 237 433 240" fill="none" stroke="#A68BFF" stroke-width="3" stroke-linecap="round"/>
+    <path d="M28 240 C68 237 89 224 114 208 C162 177 180 134 219 124 C265 114 293 164 324 196 C365 232 396 238 433 240" fill="none" stroke="#61E6D4" stroke-width="3" stroke-linecap="round"/>
+    <path d="M28 241 H434" stroke="#7185A8" stroke-opacity=".35"/>
+    <circle cx="33" cy="260" r="4" fill="#A68BFF"/>
+    <text x="44" y="264" fill="#BAC7DF" font-size="12" font-family="system-ui, -apple-system, Segoe UI, sans-serif">Q — market-implied</text>
+    <circle cx="240" cy="260" r="4" fill="#61E6D4"/>
+    <text x="251" y="264" fill="#BAC7DF" font-size="12" font-family="system-ui, -apple-system, Segoe UI, sans-serif">P — real-world</text>
+  </g>
+</g>
+</svg>
