@@ -72,6 +72,17 @@ class ExecutionAcceptance(unittest.TestCase):
                     execute(root=root, issue=984, criterion="AC-1", report=report)
             self.assertFalse(report.exists())
 
+    def test_ac_2_report_symlink_cannot_write_outside_checkout(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder) / "checkout"
+            root.mkdir()
+            report = self.fixture(root, "self.assertTrue(True)")
+            outside = Path(folder) / "outside"
+            outside.mkdir()
+            (root / "reports").symlink_to(outside, target_is_directory=True)
+            with self.assertRaises(DiscoveryError):
+                self.run_case(root, report)
+
 
 if __name__ == "__main__":
     unittest.main()
