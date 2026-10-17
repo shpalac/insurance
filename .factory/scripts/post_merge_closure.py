@@ -244,19 +244,19 @@ def blocked_message(item: dict, sha: str) -> str:
             or any(not isinstance(ac, str) for ac in missing)):
         raise ReconcileError("Unsafe missing-criteria diagnostics")
     details = (
-        "- Missing acceptance implementations: " + ", ".join(missing) + "\\n"
+        "- Missing acceptance implementations: " + ", ".join(missing) + "\n"
         if missing else ""
     )
     return (
-        f"{STATUS_MARKER}\\n"
-        "Post-merge completion remains **blocked**; the Issue is intentionally open.\\n\\n"
-        f"- Verification main SHA: {sha}\\n"
-        f"- Reason: `{reason}`\\n"
+        f"{STATUS_MARKER}\n"
+        "Post-merge completion remains **blocked**; the Issue is intentionally open.\n\n"
+        f"- Verification main SHA: {sha}\n"
+        f"- Reason: `{reason}`\n"
         + details
         + "- The linked PR has merged, but the complete executable acceptance contract "
-        "has not been verified on the current default branch.\\n"
-        "- CI-only review policy waives independent review, not acceptance tests.\\n"
-        "- Implement every missing criterion in .factory/acceptance/issue_N/test_ac_K.py.\\n"
+        "has not been verified on the current default branch.\n"
+        "- CI-only review policy waives independent review, not acceptance tests.\n"
+        "- Implement every missing criterion in .factory/acceptance/issue_N/test_ac_K.py.\n"
     )
 
 def apply(api: GitHub, sha: str, plan: dict):
