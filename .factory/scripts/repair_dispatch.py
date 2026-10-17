@@ -19,6 +19,7 @@ import yaml
 from github_ref_leases import GitHubRefLeaseStore
 from lease_fencing import WorkerProof
 from repair_recovery import identify_failure, reserve_repair
+from repair_canary_proof import LiveRepairProofMissing, verify_live_repair_proof
 from pr_merge_coordinator import API
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -53,6 +54,13 @@ def main() -> int:
             if api.get(f"/issues/{prerequisite}").get("state") != "closed":
                 print("DISABLED: repair factory prerequisites are not complete")
                 return 0
+        main_sha = api.get("/branches/main")["commit"]["sha"]
+        try:
+            verify_live_repair_proof(api, main_sha)
+        except LiveRepairProofMissing:
+            print(json.dumps({"status": "disabled",
+                              "reason": "live_repair_canary_not_verified"}))
+            return 0
         pr = api.get(f"/pulls/{refs[0]['number']}")
         if ((pr.get("head",{}).get("repo") or {}).get("full_name","").lower()
                 != repo.lower()):
