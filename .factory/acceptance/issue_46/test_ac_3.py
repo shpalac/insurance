@@ -40,8 +40,14 @@ class Acceptance(unittest.TestCase):
         with self.assertRaises(LiveRepairProofMissing):
             verify_live_repair_proof(NoRealRepair(), MAIN)
         closure = (ROOT / ".factory/scripts/post_merge_closure.py").read_text()
-        self.assertIn("verify_live_repair_proof(api, sha)", closure)
-        self.assertIn("for dependency in (43, 44, 45)", closure)
+        self.assertNotIn("verify_live_repair_proof(api, sha)", closure)
+        self.assertNotIn("for dependency in (43, 44, 45)", closure)
+        dispatcher = (ROOT / ".factory/scripts/repair_dispatch.py").read_text()
+        self.assertIn("verify_live_repair_proof(api, main_sha)", dispatcher)
+        self.assertLess(
+            dispatcher.index("verify_live_repair_proof(api, main_sha)"),
+            dispatcher.index('api.call("POST","/dispatches"'),
+        )
         self.assertTrue(approve_candidate(**kw))
         self.assertFalse(approve_candidate(**dict(kw,comments=[])))
         self.assertFalse(approve_candidate(**dict(kw,checks=checks[:-1])))

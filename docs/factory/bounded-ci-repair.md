@@ -69,3 +69,18 @@ new-head verification and required-check rerun. The live canary requires
 an owner-authorized external worker and GitHub App permissions. Until that
 runtime is provisioned and a genuine canary passes, the implementation can
 merge safely but Issue #46 intentionally stays open with a blocked audit.
+
+
+## Implementation closure versus activation
+
+The implementation Issue #46 is eligible for the audited post-merge closure
+once its own co-shipped acceptance criteria pass against the current protected
+`main` SHA and the audit records the linked merge SHA and durable report hashes.
+It must not wait for the live-repair canary: the dispatcher itself requires
+Issues #43, #44, #45 and #46 closed before activation, so making Issue #46's
+closure depend on that canary creates a circular prerequisite.
+
+Activation remains fail-closed. Even after those Issues close, the dispatcher
+must find a successful `Factory live CI repair end-to-end canary` for the current
+main SHA before it sends any external repair dispatch. Missing canary evidence
+returns a disabled status; it does not weaken checks or silently dispatch.
