@@ -95,6 +95,8 @@ def inspect_open(repo: str, token: str) -> list[dict]:
             issues = json.load(response)
         if not issues:
             break
+        if page == 10 and len(issues) == 100:
+            raise ValueError("Issue queue exceeds the bounded 1000-item reconciliation window")
         for issue in issues:
             labels = {item.get("name", "") for item in issue.get("labels", [])}
             is_pr = bool(issue.get("pull_request"))
