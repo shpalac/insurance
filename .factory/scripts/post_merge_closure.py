@@ -315,10 +315,10 @@ def blocked_message(item: dict, sha: str) -> str:
         (unproven, "unproven-criteria"),
     ):
         if (not isinstance(values, list) or len(values) > 100
-                or len(set(values)) != len(values)
                 or any(not isinstance(ac, str)
                        or not re.fullmatch(r"AC-[1-9][0-9]*", ac)
-                       for ac in values)):
+                       for ac in values)
+                or len(set(values)) != len(values)):
             raise ReconcileError(f"Unsafe {label} diagnostics")
     blocker = item.get("evidence_blocker")
     if blocker not in (None, "live_two_issue_canary_not_verified"):
