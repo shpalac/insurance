@@ -81,7 +81,13 @@ def main(argv=None) -> int:
         print(json.dumps({"status": "PASS", **summary}, sort_keys=True))
         return 0
     except (DiscoveryError, subprocess.TimeoutExpired, OSError, ValueError) as exc:
-        print(f"ERROR: permanent acceptance blocked ({type(exc).__name__})", file=sys.stderr)
+        # DiscoveryError messages contain only trusted criterion/path metadata;
+        # subprocess stdout/stderr is deliberately never echoed into CI logs.
+        detail = str(exc)[:240]
+        print(
+            f"ERROR: permanent acceptance blocked ({type(exc).__name__}): {detail}",
+            file=sys.stderr,
+        )
         return 1
 
 
