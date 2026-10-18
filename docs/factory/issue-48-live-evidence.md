@@ -66,23 +66,40 @@ merge ancestry, all five required checks on the immutable PR head, a successful
 `factory-agent-dispatch-proof` artifact and digest, a successful closure run,
 and exactly one audited closure record tied to the merge SHA and PR number.
 
-For each fault case, it fetches the actual successful `Factory fault injection
+For each fault case, it fetches a successful `Factory fault injection
 canary` run, the case-specific successful job, and its retained artifact with
 the matching digest. Reusing synthetic IDs, fake digests, expired artifacts,
 untrusted actors, or mocked-only proof fails verification.
 
+## Current hard blockers
+
+- The latest `Factory agent dispatch` runs with a successful conclusion report
+  `owner_flag_off` and have no `factory-agent-dispatch-proof` artifact. A real
+  approved-agent dispatch cannot be inferred from those runs.
+- No qualifying `Factory fault injection canary` run exists, and the repository
+  has no workflow that currently produces its ten case-specific artifacts.
+- No successful `Factory two-issue autonomous delivery canary` run exists.
+  The evidence input path is now explicit, but the input still has to contain
+  independently verifiable real run IDs and artifact digests.
+
+These are operational evidence gaps, not missing Python test files. The four
+`.factory/acceptance/issue_48/test_ac_K.py` files are already present and are
+updated in this PR to exercise the evidence-input and diagnostic contracts.
+
 ## Completion sequence
 
-1. Run genuine approved-agent delivery and closure for two distinct Issues.
-2. Run the hosted fault-injection workflow for all five recovery and five
-   negative-admission cases; retain each real artifact and SHA-256 digest.
-3. Assemble the manifest from those immutable records and dispatch
+1. An owner enables the external agent dispatch only after configuring the
+   approved provider, role-scoped credentials, and safe lease-state access.
+2. Run genuine approved-agent delivery and audited closure for two distinct
+   Issues.
+3. Implement and run a hosted fault-injection workflow for all five recovery and
+   five negative-admission cases; retain each real artifact and SHA-256 digest.
+4. Assemble the manifest from those immutable records and dispatch
    **Factory two-issue autonomous delivery canary** on `main`.
-4. On a successful canary, **Factory verified issue closure** runs immediately
+5. On a successful canary, **Factory verified issue closure** runs immediately
    and rechecks every criterion against the exact current `main` SHA.
-5. If any record is missing, the Issue remains open and the status comment lists
+6. If any record is missing, the Issue remains open and the status comment lists
    every criterion whose live evidence is still unproven.
 
-The repository does not currently contain the live delivery/fault artifacts
-needed to complete this sequence. Do not populate the manifest with placeholders
-or treat this PR's unit tests as a substitute.
+Do not populate the manifest with placeholders or treat this PR's unit tests as
+a substitute for live delivery and fault-injection evidence.
