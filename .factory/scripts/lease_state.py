@@ -41,6 +41,7 @@ class Lease:
 
 class LeaseStore(Protocol):
     def read(self, entity: int) -> Lease | None: ...
+    def read_all(self) -> dict[int, Lease]: ...
     def cas(self, entity: int, previous_revision: int, new: Lease) -> bool: ...
 
 
@@ -63,6 +64,11 @@ class InMemoryLeaseStore:
                 return False
             self._states[entity] = new
             return True
+
+
+    def read_all(self) -> dict[int, Lease]:
+        with self._lock:
+            return dict(self._states)
 
 
 def acquire(
@@ -149,6 +155,24 @@ def checkpoint(
     )
     if not store.cas(entity, current.revision, new):
         raise StaleLease("Checkpoint lost CAS race")
+    return new
+
+
+def complete(
+    store: LeaseStore, *, entity: int, epoch: int, owner: str, now: datetime
+) -> Lease:
+    """Retire a successfully completed issue with a durable compare-and-swap."""
+    if now.tzinfo is None:
+        raise ValueError("UTC-aware completion time required")
+    current = _require_current(
+        store, entity=entity, epoch=epoch, owner=owner, now=now
+    )
+    new = replace(
+        current, revision=current.revision + 1, phase="completed",
+        heartbeat_at=now, expires_at=now,
+    )
+    if not store.cas(entity, current.revision, new):
+        raise StaleLease("Completion lost CAS race")
     return new
 
 

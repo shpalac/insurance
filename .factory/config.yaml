@@ -13,6 +13,7 @@ repository:
 orchestration:
   enabled: false
   agent_backend: "external"
+  agent_providers: []
   approved_agent_logins: []
   lease_backend: "github_ref_cas"
   max_concurrent_agents: 2

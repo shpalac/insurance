@@ -1,0 +1,53 @@
+name: Factory agent dispatch
+on:
+  workflow_run:
+    workflows: ["Factory orchestration diagnostics", "Factory selective CI"]
+    types: [completed]
+permissions:
+  contents: read
+concurrency:
+  group: insurance-factory-agent-dispatch
+  cancel-in-progress: false
+jobs:
+  dispatch:
+    if: >-
+      (
+        github.event.workflow_run.name == 'Factory orchestration diagnostics' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main' &&
+        (github.event.workflow_run.event == 'issues' ||
+         github.event.workflow_run.event == 'schedule')
+      ) || (
+        github.event.workflow_run.name == 'Factory selective CI' &&
+        github.event.workflow_run.conclusion == 'failure' &&
+        github.event.workflow_run.event == 'pull_request' &&
+        github.event.workflow_run.head_repository.full_name == github.repository
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+      checks: read
+    steps:
+      - name: Checkout trusted main only
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Install trusted controller dependencies
+        run: python3 -m pip install -r .factory/requirements-dev.txt
+      - name: Claim one eligible task and dispatch through the configured gateway
+        env:
+          FACTORY_AGENT_DISPATCH_ENABLED: ${{ vars.FACTORY_AGENT_DISPATCH_ENABLED || 'false' }}
+          FACTORY_AGENT_DISPATCH_APP_TOKEN: ${{ secrets.FACTORY_AGENT_DISPATCH_APP_TOKEN }}
+          FACTORY_AGENT_PROVIDER: ${{ vars.FACTORY_AGENT_PROVIDER || '' }}
+          FACTORY_AGENT_ENDPOINT: ${{ secrets.FACTORY_AGENT_ENDPOINT }}
+          FACTORY_AGENT_LOGIN: ${{ vars.FACTORY_AGENT_LOGIN || '' }}
+          FACTORY_AGENT_TOKEN_PLANNER: ${{ secrets.FACTORY_AGENT_TOKEN_PLANNER }}
+          FACTORY_AGENT_TOKEN_VALIDATOR: ${{ secrets.FACTORY_AGENT_TOKEN_VALIDATOR }}
+          FACTORY_AGENT_TOKEN_DEVELOPER: ${{ secrets.FACTORY_AGENT_TOKEN_DEVELOPER }}
+          FACTORY_AGENT_TOKEN_CI_ENGINEER: ${{ secrets.FACTORY_AGENT_TOKEN_CI_ENGINEER }}
+          FACTORY_AGENT_TOKEN_INTEGRATOR: ${{ secrets.FACTORY_AGENT_TOKEN_INTEGRATOR }}
+        run: python3 .factory/scripts/agent_dispatch.py

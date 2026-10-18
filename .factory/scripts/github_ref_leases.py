@@ -86,13 +86,16 @@ class GitHubRefLeaseStore:
         if not path.startswith("/") or "://" in path:
             raise StateError("Unsafe GitHub API path")
         body = json.dumps(payload).encode() if payload is not None else None
+        headers = {
+            "Authorization": "Bearer " + self.token,
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+        if body is not None:
+            headers["Content-Type"] = "application/json"
         req = request.Request(
             f"https://api.github.com/repos/{self.repo}{path}",
-            data=body, method=method, headers={
-                "Authorization": "Bearer " + self.token,
-                "Accept": "application/vnd.github+json",
-                "X-GitHub-Api-Version": "2022-11-28",
-            },
+            data=body, method=method, headers=headers,
         )
         with request.urlopen(req, timeout=25) as response:
             data = response.read()

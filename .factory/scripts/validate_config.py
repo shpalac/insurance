@@ -50,6 +50,8 @@ def validate_config(root: Path = ROOT) -> list[str]:
     orchestration = config["orchestration"]
     if orchestration["enabled"] and not orchestration["approved_agent_logins"]:
         errors.append("Autonomous execution requires approved agent identities")
+    if orchestration["enabled"] and not orchestration["agent_providers"]:
+        errors.append("Autonomous execution requires an explicit external provider allowlist")
 
     return sorted(errors)
 
