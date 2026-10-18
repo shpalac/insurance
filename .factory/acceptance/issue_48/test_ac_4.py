@@ -10,7 +10,7 @@ from two_issue_canary import (LiveTwoIssueCanaryMissing, STAGES, WORKFLOW,
                               ARTIFACT, verify_live_two_issue_canary)
 from post_merge_closure import blocked_message
 from issue_48_live_evidence import verify_phase, UnverifiedLiveDelivery
-from live_evidence_fixtures import EvidenceAPI, MAIN_SHA, REPO, make_evidence
+from issue_48_live_evidence_fixtures import EvidenceAPI, MAIN_SHA, REPO, make_evidence
 
 SHA="d"*40
 RUN={"id":404,"name":WORKFLOW,"head_sha":SHA,"head_branch":"main",
