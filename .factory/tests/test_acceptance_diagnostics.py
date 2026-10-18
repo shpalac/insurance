@@ -17,6 +17,20 @@ class ClosureDiagnostics(unittest.TestCase):
         self.assertIn("intentionally open", message)
         self.assertIn(".factory/acceptance/issue_N/test_ac_K.py", message)
 
+    def test_live_canary_blocker_lists_every_unproven_criterion(self):
+        message = blocked_message({
+            "reason": "acceptance_incomplete_or_untrusted_target",
+            "missing_criteria": [],
+            "unproven_criteria": ["AC-1", "AC-2", "AC-3", "AC-4"],
+            "evidence_blocker": "live_two_issue_canary_not_verified",
+        }, "a"*40)
+        self.assertIn(
+            "Acceptance criteria without verified proof: AC-1, AC-2, AC-3, AC-4",
+            message,
+        )
+        self.assertIn("live_two_issue_canary_not_verified", message)
+        self.assertIn("mocked tests alone do not satisfy the live canary", message)
+
     def test_untrusted_diagnostics_cannot_be_rendered(self):
         with self.assertRaises(ReconcileError):
             blocked_message({
