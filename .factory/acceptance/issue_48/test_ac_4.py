@@ -5,7 +5,7 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[3]
 sys.path.insert(0,str(ROOT/".factory/scripts"))
-sys.path.insert(0,str(ROOT/".factory/acceptance/issue_48"))
+sys.path.insert(0,str(ROOT/".factory/tests"))
 from two_issue_canary import (LiveTwoIssueCanaryMissing, STAGES, WORKFLOW,
                               ARTIFACT, verify_live_two_issue_canary)
 from post_merge_closure import blocked_message
