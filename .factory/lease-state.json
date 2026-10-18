@@ -1,1 +1,1 @@
-{"leases": {}, "version": 1}
+{"leases":{"39085475681":{"attempts":0,"branch":"","commit_sha":"","diff_hashes":[],"entity":39085475681,"epoch":1,"expires_at":"2026-10-18T01:40:17.023128+00:00","heartbeat_at":"2026-10-18T01:10:17.023128+00:00","owner":"canary-one","phase":"claimed","revision":1,"role":"developer"}},"version":1}
