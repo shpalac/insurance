@@ -8,7 +8,7 @@ sys.path.insert(0,str(ROOT/".factory/scripts"))
 sys.path.insert(0,str(ROOT/".factory/tests"))
 from two_issue_canary import LiveTwoIssueCanaryMissing, STAGES, WORKFLOW, verify_live_two_issue_canary
 from issue_48_live_evidence import verify_fault, verify_phase, UnverifiedLiveDelivery
-from live_evidence_fixtures import EvidenceAPI, MAIN_SHA, REPO, ALL_FAULTS, RECOVERY, make_evidence
+from issue_48_live_evidence_fixtures import EvidenceAPI, MAIN_SHA, REPO, ALL_FAULTS, RECOVERY, make_evidence
 
 SHA="b"*40
 RUN={"id":310,"name":WORKFLOW,"head_sha":SHA,"head_branch":"main",
