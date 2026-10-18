@@ -20,7 +20,7 @@ class ProviderNeutralAcceptance(unittest.TestCase):
         store=InMemoryLeaseStore()
         acquire(store,entity=7,owner="worker",role="developer",now=NOW,ttl=timedelta(minutes=5))
         transport=Transport()
-        result=dispatch(store=store,issue=7,authenticated_login="worker",role="developer",approved_logins={"worker"},now=NOW,provider="custom-provider",transport=transport,enabled=True)
+        result=dispatch(store=store,issue=7,authenticated_login="worker",role="developer",approved_logins={"worker"},now=NOW,provider="custom-provider",configured_providers={"custom-provider"},transport=transport,enabled=True)
         self.assertEqual(result,"ack")
         self.assertEqual(transport.calls[0][0],"custom-provider")
 
@@ -29,5 +29,13 @@ class ProviderNeutralAcceptance(unittest.TestCase):
         acquire(store,entity=7,owner="worker",role="developer",now=NOW,ttl=timedelta(minutes=5))
         transport=Transport()
         with self.assertRaises(DispatchDenied):
-            dispatch(store=store,issue=7,authenticated_login="worker",role="developer",approved_logins={"worker"},now=NOW,provider="custom-provider",transport=transport,enabled=False)
+            dispatch(store=store,issue=7,authenticated_login="worker",role="developer",approved_logins={"worker"},now=NOW,provider="custom-provider",configured_providers={"custom-provider"},transport=transport,enabled=False)
+        self.assertEqual(transport.calls,[])
+
+    def test_ac_6_unconfigured_provider_fails_closed(self):
+        store=InMemoryLeaseStore()
+        acquire(store,entity=7,owner="worker",role="developer",now=NOW,ttl=timedelta(minutes=5))
+        transport=Transport()
+        with self.assertRaises(DispatchDenied):
+            dispatch(store=store,issue=7,authenticated_login="worker",role="developer",approved_logins={"worker"},now=NOW,provider="custom-provider",configured_providers={"other-provider"},transport=transport,enabled=True)
         self.assertEqual(transport.calls,[])
