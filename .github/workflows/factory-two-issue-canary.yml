@@ -45,7 +45,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           FACTORY_LIVE_EVIDENCE_JSON: ${{ inputs.evidence_json }}
-        run: python3 .factory/scripts/issue_48_live_evidence.py --phase recovery --evidence .factory/live-evidence/issue_48.json
+        run: python3 .factory/scripts/issue_48_live_evidence.py --phase recovery
 
   negative:
     name: negative-admission
@@ -60,7 +60,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           FACTORY_LIVE_EVIDENCE_JSON: ${{ inputs.evidence_json }}
-        run: python3 .factory/scripts/issue_48_live_evidence.py --phase negative --evidence .factory/live-evidence/issue_48.json
+        run: python3 .factory/scripts/issue_48_live_evidence.py --phase negative
 
   second:
     name: real-second-issue
@@ -76,7 +76,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           FACTORY_LIVE_EVIDENCE_JSON: ${{ inputs.evidence_json }}
-        run: python3 .factory/scripts/issue_48_live_evidence.py --phase second --evidence .factory/live-evidence/issue_48.json
+        run: python3 .factory/scripts/issue_48_live_evidence.py --phase second
 
   attestation:
     name: verify-independent-evidence
@@ -93,7 +93,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           FACTORY_LIVE_EVIDENCE_JSON: ${{ inputs.evidence_json }}
         run: |
-          python3 .factory/scripts/issue_48_live_evidence.py --phase all --evidence .factory/live-evidence/issue_48.json > factory-two-issue-live-evidence.json
+          python3 .factory/scripts/issue_48_live_evidence.py --phase all > factory-two-issue-live-evidence.json
       - name: Retain independently verified live evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
