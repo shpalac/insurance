@@ -5,9 +5,12 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[3]
 sys.path.insert(0,str(ROOT/".factory/scripts"))
+sys.path.insert(0,str(ROOT/".factory/acceptance/issue_48"))
 from two_issue_canary import (LiveTwoIssueCanaryMissing, STAGES, WORKFLOW,
                               ARTIFACT, verify_live_two_issue_canary)
 from post_merge_closure import blocked_message
+from issue_48_live_evidence import verify_phase, UnverifiedLiveDelivery
+from live_evidence_fixtures import EvidenceAPI, MAIN_SHA, REPO, make_evidence
 
 SHA="d"*40
 RUN={"id":404,"name":WORKFLOW,"head_sha":SHA,"head_branch":"main",
@@ -45,6 +48,30 @@ class Acceptance(unittest.TestCase):
             verify_live_two_issue_canary(Fake(duplicates=True),SHA)
         self.assertLess(STAGES.index("real-first-issue"),
                         STAGES.index("real-second-issue"))
+
+    def test_ac_4_all_live_phases_verify_two_ordered_deliveries_and_ten_faults(self):
+        evidence = make_evidence()
+        summary = verify_phase(
+            EvidenceAPI(evidence), evidence, repo=REPO, phase="all"
+        )
+        self.assertEqual(summary["verified_main_sha"], MAIN_SHA)
+        self.assertEqual(summary["deliveries"], 2)
+        self.assertEqual(summary["recovery_cases"], 5)
+        self.assertEqual(summary["negative_cases"], 5)
+
+        reversed_order = make_evidence()
+        reversed_order["deliveries"][1]["closed_at"] = "2026-10-17T11:00:00Z"
+        with self.assertRaises(UnverifiedLiveDelivery):
+            verify_phase(
+                EvidenceAPI(reversed_order), reversed_order,
+                repo=REPO, phase="all",
+            )
+        duplicate = make_evidence()
+        duplicate["deliveries"][1]["pr"] = duplicate["deliveries"][0]["pr"]
+        with self.assertRaises(UnverifiedLiveDelivery):
+            verify_phase(
+                EvidenceAPI(duplicate), duplicate, repo=REPO, phase="all"
+            )
 
     def test_ac_4_successful_canary_triggers_audited_recheck_and_lists_unproven_criteria(self):
         closure=(ROOT/".github/workflows/factory-verified-closure.yml").read_text()
