@@ -5,7 +5,10 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[3]
 sys.path.insert(0,str(ROOT/".factory/scripts"))
+sys.path.insert(0,str(ROOT/".factory/acceptance/issue_48"))
 from two_issue_canary import LiveTwoIssueCanaryMissing, STAGES, WORKFLOW, verify_live_two_issue_canary
+from issue_48_live_evidence import verify_fault, verify_phase, UnverifiedLiveDelivery
+from live_evidence_fixtures import EvidenceAPI, MAIN_SHA, REPO, ALL_FAULTS, RECOVERY, make_evidence
 
 SHA="b"*40
 RUN={"id":310,"name":WORKFLOW,"head_sha":SHA,"head_branch":"main",
@@ -36,6 +39,35 @@ class Acceptance(unittest.TestCase):
         with self.assertRaises(AssertionError):
             verify_live_two_issue_canary(Fake(faults_green=True),SHA)
         self.assertEqual(len(STAGES),5)
+
+    def test_ac_2_every_hosted_fault_has_a_successful_job_and_digest(self):
+        evidence = make_evidence()
+        api = EvidenceAPI(evidence)
+        for name in ALL_FAULTS:
+            with self.subTest(fault=name):
+                verify_fault(api, evidence["faults"][name], name)
+        summary = verify_phase(api, evidence, repo=REPO, phase="recovery")
+        self.assertEqual(summary["recovery_cases"], len(RECOVERY))
+        name = RECOVERY[0]
+        row = evidence["faults"][name]
+        with self.assertRaises(UnverifiedLiveDelivery):
+            verify_fault(
+                EvidenceAPI(evidence, {
+                    f"/actions/runs/{row['run_id']}/jobs?per_page=100": {
+                        "total_count": 0, "jobs": [],
+                    },
+                }),
+                row, name,
+            )
+        with self.assertRaises(UnverifiedLiveDelivery):
+            verify_fault(
+                EvidenceAPI(evidence, {
+                    f"/actions/runs/{row['run_id']}/artifacts?per_page=100": {
+                        "total_count": 0, "artifacts": [],
+                    },
+                }),
+                row, name,
+            )
 
     def test_ac_2_all_recovery_and_negative_stages_use_the_same_evidence_input(self):
         script=(ROOT/".factory/scripts/issue_48_live_evidence.py").read_text()
