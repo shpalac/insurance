@@ -1,0 +1,16 @@
+{
+  "example_type": "FICTIONAL_ARITHMETIC_ONLY_NOT_MARKET_DATA",
+  "strategy": "Illustrative 5-point-wide cash-settled put credit spread",
+  "contract_multiplier": 100,
+  "width_points": 5,
+  "assumed_credit_points": 2.1,
+  "assumed_expected_payout_points": 1.6,
+  "assumed_all_in_transaction_costs_usd": 16,
+  "modeled_net_expected_pnl_usd": 34,
+  "modeled_maximum_loss_usd": 306,
+  "conservative_ev_confidence_lower_bound_usd": null,
+  "point_in_time_options_backtest": "NOT_PERFORMED",
+  "classification": "UNVERIFIED",
+  "recommendation": "NO TRADE",
+  "disclaimer": "Not generated from observed option quotes; not a validated trade or performance result."
+}
