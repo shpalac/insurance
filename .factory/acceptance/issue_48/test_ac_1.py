@@ -5,8 +5,10 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[3]
 sys.path.insert(0,str(ROOT/".factory/scripts"))
+sys.path.insert(0,str(ROOT/".factory/acceptance/issue_48"))
 from two_issue_canary import LiveTwoIssueCanaryMissing, verify_live_two_issue_canary
-from issue_48_live_evidence import load_evidence
+from issue_48_live_evidence import load_evidence, verify_delivery, UnverifiedLiveDelivery
+from live_evidence_fixtures import EvidenceAPI, MAIN_SHA, REPO, make_evidence
 
 SHA="a"*40
 
@@ -34,6 +36,37 @@ class Acceptance(unittest.TestCase):
         self.assertIn('item["two_issue_canary"] = verify_live_two_issue_canary(api, sha)',closure)
         self.assertIn('item.get("two_issue_canary") != verify_live_two_issue_canary(api, sha)',closure)
         self.assertTrue(SHA and len(SHA)==40)
+
+    def test_ac_1_full_delivery_requires_real_issue_merge_checks_dispatch_and_audit(self):
+        evidence = make_evidence()
+        row = evidence["deliveries"][0]
+        api = EvidenceAPI(evidence)
+        result = verify_delivery(api, row, MAIN_SHA, repository=REPO)
+        self.assertEqual(result["issue"], row["issue"])
+        self.assertEqual(result["pr"], row["pr"])
+        self.assertEqual(result["merge_sha"], row["merge_sha"])
+
+        with self.assertRaises(UnverifiedLiveDelivery):
+            verify_delivery(
+                EvidenceAPI(evidence, {f"/issues/{row['issue']}": {
+                    "number": row["issue"], "state": "open",
+                }}),
+                row, MAIN_SHA, repository=REPO,
+            )
+        check_path = f"/commits/{row['head_sha']}/check-runs?per_page=100"
+        with self.assertRaises(UnverifiedLiveDelivery):
+            verify_delivery(
+                EvidenceAPI(evidence, {check_path: {"total_count": 0, "check_runs": []}}),
+                row, MAIN_SHA, repository=REPO,
+            )
+        with self.assertRaises(UnverifiedLiveDelivery):
+            verify_delivery(
+                EvidenceAPI(evidence, {f"/actions/runs/{row['dispatch_run']}/artifacts?per_page=100": {
+                    "total_count": 0, "artifacts": [],
+                }}),
+                row, MAIN_SHA, repository=REPO,
+            )
+        self.assertTrue(result["closed_at"])
 
     def test_ac_1_live_evidence_can_be_supplied_without_a_checked_in_file(self):
         workflow=(ROOT/".github/workflows/factory-two-issue-canary.yml").read_text()
