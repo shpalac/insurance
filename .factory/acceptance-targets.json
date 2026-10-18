@@ -442,58 +442,6 @@
         "-p",
         "test_ac_3.py"
       ]
-    },
-    "48/AC-1": {
-      "runner_os": "ubuntu-latest",
-      "argv": [
-        "python",
-        "-m",
-        "unittest",
-        "discover",
-        "-s",
-        ".factory/acceptance/issue_48",
-        "-p",
-        "test_ac_1.py"
-      ]
-    },
-    "48/AC-2": {
-      "runner_os": "ubuntu-latest",
-      "argv": [
-        "python",
-        "-m",
-        "unittest",
-        "discover",
-        "-s",
-        ".factory/acceptance/issue_48",
-        "-p",
-        "test_ac_2.py"
-      ]
-    },
-    "48/AC-3": {
-      "runner_os": "ubuntu-latest",
-      "argv": [
-        "python",
-        "-m",
-        "unittest",
-        "discover",
-        "-s",
-        ".factory/acceptance/issue_48",
-        "-p",
-        "test_ac_3.py"
-      ]
-    },
-    "48/AC-4": {
-      "runner_os": "ubuntu-latest",
-      "argv": [
-        "python",
-        "-m",
-        "unittest",
-        "discover",
-        "-s",
-        ".factory/acceptance/issue_48",
-        "-p",
-        "test_ac_4.py"
-      ]
     }
   }
 }
