@@ -275,6 +275,13 @@ def prepare(api: GitHub, sha: str, run_id: int, *, run=run_criteria):
                     item["status"] = "ready"
                     item["reason"] = "all_acceptance_green_on_main"
                     item["evidence"] = evidence
+            except LiveTwoIssueCanaryMissing:
+                    item["reason"] = "acceptance_incomplete_or_untrusted_target"
+                    # The named tests exist, but every criterion remains unproven
+                    # until real hosted delivery and fault-injection evidence passes.
+                    item["unproven_criteria"] = list(item["criteria"])
+                    item["evidence_blocker"] = "live_two_issue_canary_not_verified"
+                    print(f"Issue #{number}: acceptance blocked (LiveTwoIssueCanaryMissing)")
             except (AcceptanceError, CrossOSProofError, HostedLeaseCanaryMissing, OSError, ValueError) as exc:
                     item["reason"] = "acceptance_incomplete_or_untrusted_target"
                     # Do not leak stdout, stderr, or issue-supplied strings into public comments.
@@ -302,25 +309,48 @@ def blocked_message(item: dict, sha: str) -> str:
     }:
         raise ReconcileError("Untrusted blocking reason")
     missing = item.get("missing_criteria", [])
-    if (not isinstance(missing, list) or len(missing) > 100
-            or any(not re.fullmatch(r"AC-[1-9][0-9]*", ac)
-                   for ac in missing if isinstance(ac, str))
-            or any(not isinstance(ac, str) for ac in missing)):
-        raise ReconcileError("Unsafe missing-criteria diagnostics")
+    unproven = item.get("unproven_criteria", [])
+    for values, label in (
+        (missing, "missing-criteria"),
+        (unproven, "unproven-criteria"),
+    ):
+        if (not isinstance(values, list) or len(values) > 100
+                or len(set(values)) != len(values)
+                or any(not isinstance(ac, str)
+                       or not re.fullmatch(r"AC-[1-9][0-9]*", ac)
+                       for ac in values)):
+            raise ReconcileError(f"Unsafe {label} diagnostics")
+    blocker = item.get("evidence_blocker")
+    if blocker not in (None, "live_two_issue_canary_not_verified"):
+        raise ReconcileError("Unsafe evidence blocker diagnostic")
     details = (
         "- Missing acceptance implementations: " + ", ".join(missing) + "\n"
         if missing else ""
+    )
+    proof_details = (
+        "- Acceptance criteria without verified proof: "
+        + ", ".join(unproven) + "\n"
+        if unproven else ""
+    )
+    blocker_details = (
+        "- Live-evidence blocker: `live_two_issue_canary_not_verified`\n"
+        if blocker else ""
+    )
+    next_step = (
+        "- Provide genuine hosted delivery and fault-injection evidence for the listed criteria; mocked tests alone do not satisfy the live canary.\n"
+        if unproven else
+        "- Implement every missing criterion in .factory/acceptance/issue_N/test_ac_K.py.\n"
     )
     return (
         f"{STATUS_MARKER}\n"
         "Post-merge completion remains **blocked**; the Issue is intentionally open.\n\n"
         f"- Verification main SHA: {sha}\n"
         f"- Reason: `{reason}`\n"
-        + details
+        + details + proof_details + blocker_details
         + "- The linked PR has merged, but the complete executable acceptance contract "
         "has not been verified on the current default branch.\n"
         "- CI-only review policy waives independent review, not acceptance tests.\n"
-        "- Implement every missing criterion in .factory/acceptance/issue_N/test_ac_K.py.\n"
+        + next_step
     )
 
 def apply(api: GitHub, sha: str, plan: dict):
