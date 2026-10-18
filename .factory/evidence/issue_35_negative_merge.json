@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "repository": "shpalac/insurance",
+  "issue": 35,
+  "pull_request": 63,
+  "head_sha": "5318eeb324fa5322c9db4c26d016f6a41475a9a5",
+  "attempted_merge_http_status": 405,
+  "merge_result": "rejected",
+  "merged": false,
+  "required_check_failure": "factory-bootstrap-gate",
+  "evidence_url": "https://github.com/shpalac/insurance/pull/63"
+}
