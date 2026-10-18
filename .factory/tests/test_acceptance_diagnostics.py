@@ -37,6 +37,18 @@ class ClosureDiagnostics(unittest.TestCase):
                 "reason": "acceptance_incomplete_or_untrusted_target",
                 "missing_criteria": ["AC-1\nFAKE SUCCESS"],
             }, "a"*40)
+        with self.assertRaises(ReconcileError):
+            blocked_message({
+                "reason": "acceptance_incomplete_or_untrusted_target",
+                "missing_criteria": [],
+                "unproven_criteria": [{}],
+            }, "a"*40)
+        with self.assertRaises(ReconcileError):
+            blocked_message({
+                "reason": "acceptance_incomplete_or_untrusted_target",
+                "missing_criteria": [],
+                "unproven_criteria": ["AC-1", "AC-1"],
+            }, "a"*40)
 
     def test_invalid_reason_does_not_leak_into_public_issue(self):
         with self.assertRaises(ReconcileError):
