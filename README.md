@@ -12,7 +12,9 @@
 [![Python 3.11+](https://img.shields.io/badge/PYTHON-3.11%2B-4361A4?style=for-the-badge)](#quick-start)
 [![Research scanner CI](https://github.com/shpalac/insurance/actions/workflows/ci.yml/badge.svg)](https://github.com/shpalac/insurance/actions/workflows/ci.yml)
 
-**An open-source, evidence-first laboratory for finding options insurance that might be overpriced or underpriced.**
+**Quantitative options mispricing research — evaluate whether index-option insurance is potentially expensive to sell or cheap to buy, based on modeled real-world payouts and executable-price assumptions.**
+
+**Research-only today · All candidates `UNVERIFIED` · No live orders**
 
 [Why it exists](#the-idea) · [Scanner preview](#scanner-preview) · [Run the demo](#quick-start) · [Capabilities](#what-works-today) · [Architecture](#how-it-works) · [Edge validation](#the-evidence-bar) · [Market data](#bring-your-own-ibkr-market-data) · [Contribute](#contributing--security)
 
@@ -21,13 +23,21 @@
 ---
 
 > [!IMPORTANT]
-> **The current system does not recommend trades.** It can generate exploratory valuations and buy/sell research rankings, but has **no calibrated model-risk confidence intervals or point-in-time options-strategy backtest**. Every candidate is `UNVERIFIED`; the final recommendation is **`NO TRADE`**. The optional IBKR collector has not been validated as a production-quality live quote feed.
+> **No validated trading signals today.** The scanner can generate exploratory buy/sell research rankings, but lacks calibrated model-risk confidence intervals and a point-in-time options-strategy backtest. Every candidate remains `UNVERIFIED`; the final recommendation is **`NO TRADE`**. The optional read-only IBKR collector is not a production-validated live feed.
 
 ## The idea
 
-**Don't sell options merely because implied volatility is high. Don't buy them merely because premiums look small.**
+**Buy potentially underpriced protection. Sell potentially overpriced protection. Validate both hypotheses before committing capital.**
 
-An insurance premium can only be called expensive or cheap relative to a defensible estimate of the *real-world distribution of future payouts*, net of execution costs and model uncertainty.
+The same quantitative question drives both sides: does an option's conservative *executable* price differ from the modeled *real-world expected payout* enough to justify its costs, uncertainty and tail risk? High implied volatility alone is **not** evidence of expensive insurance, and a small premium alone is **not** evidence of cheap insurance.
+
+### Project maturity at a glance
+
+| Working code | Experimental research | Not yet available |
+|:--|:--|:--|
+| Snapshot ingestion, SPXW/XSP quote gates, capped-risk spread construction, file-polling CLI, SQLite deduplication | EWMA/filtered-historical `P` payout estimates, exploratory BUY/SELL rankings, optional local read-only IBKR collector | Calibrated `P` and `Q` surfaces, statistically validated edge, point-in-time options trade backtest, autonomous market-hours monitoring, dashboard, paper trading |
+
+**Current posture:** the scanner does not autonomously monitor live markets or submit orders. The [roadmap](#roadmap) distinguishes those future capabilities from implemented research code.
 
 <table>
 <tr>
@@ -82,6 +92,23 @@ The schema below is a **UI contract, not a trade list**. No positions are popula
 A future dashboard should show each candidate's actual contract legs, expiration, P/Q assumptions, model version, point-in-time bid/ask, tail loss and *why it passed or failed*. A large premium or high probability of profit is never enough.
 
 **The decision contract:** Validate inputs → construct research candidates → estimate payoff under exploratory P → apply conservative costs and risk → **reject promotion until statistical evidence exists**. The absence of trades in this historical fixture is a correct data-quality result, not proof that the wider market has no opportunities.
+
+### How to interpret a modeled opportunity
+
+The following **fictional arithmetic example is for education only**. It is not a scanner output, an observed option quote, a proposed order or evidence of an edge. Assume a cash-settled, 5-point-wide put credit spread with a $100 multiplier:
+
+| Hypothetical input or calculation | Value |
+|:--|--:|
+| Credit at entry, assumed | $2.10 × 100 = **$210** |
+| Expected expiry payout *under an unvalidated P model*, assumed | $1.60 × 100 = **$160** |
+| Total modeled transaction/execution costs, assumed | **$16** |
+| **Modeled net expected P&L** | $210 − $160 − $16 = **+$34** |
+| **Maximum loss including modeled costs** | $500 − $210 + $16 = **$306** |
+| Conservative net EV lower confidence bound | **Unavailable** |
+| Point-in-time options backtest | **Not performed** |
+| Research classification and final decision | **`UNVERIFIED` / `NO TRADE`** |
+
+The positive **hypothetical** $34 modeled EV is **not an actionable trade**. The model could be wrong, the quotes may not be executable, and rare losses may be underrepresented. Without calibrated uncertainty, out-of-sample option returns and a defensible positive lower EV bound, the candidate must be rejected. The [machine-readable fictional example](docs/examples/hypothetical-credit-spread.json) is tested for consistent arithmetic, not profitability.
 
 ## Choose your path
 
@@ -309,7 +336,7 @@ insurance --snapshot data/snapshots/ibkr.json --loop --interval 300
 - IBKR's snapshot `ticker.time` is **not proven to be a bid/ask update timestamp**. Independently verified quote receipt times, subscription health, pacing and reconnection must be implemented before production use.
 - Snapshots, databases and credentials should stay in untracked local storage. GitHub-hosted CI is **ephemeral** and does **not** provide a continuously running authenticated broker session.
 
-For the **architecture of market-hours monitoring**, including private persistent collectors, durable snapshots, stateless scheduled runners, session calendars and failure modes, read [Market data & operations](docs/market-data-operations.md).
+For **market-hours architecture**, a persistent private collector should produce provenance-stamped, authorized snapshots; stateless scheduled CI jobs can replay and validate them. A GitHub-hosted runner is **not** a persistent authenticated broker session, and the planned autonomous monitoring service is **not implemented**. See [Market data & operations](docs/market-data-operations.md).
 
 For data providers, expiration selection, input schema details and validation behavior, start in [`ibkr.py`](src/insurance/ibkr.py), [`Quote.from_dict()`](src/insurance/core.py) and the checked-in [observed fixture](data/observations/2026-10-17-frozen.json).
 
@@ -359,7 +386,7 @@ python3 -m unittest discover -s .factory/tests -v
 
 Contributions that improve **data correctness, reproducibility, statistical validation and safety** are the priority. Add tests for failure modes, keep research claims attributable to data and label assumptions explicitly.
 
-**Start here:** [Contribution guide](CONTRIBUTING.md) · [Agent operating rules](AGENTS.md) · [Research evidence gates](docs/research-validation.md) · [MIT License](LICENSE).
+**Start here:** [Contribution guide](CONTRIBUTING.md) · [Agent operating rules](AGENTS.md) · [Research evidence gates](docs/research-validation.md) · [Repository description and topics](docs/repository-profile.md) · [MIT License](LICENSE).
 
 This is a **public repository**. Never commit IBKR credentials, account data, customer records, PII or private market-data exports. Follow [`SECURITY.md`](SECURITY.md) and [`AGENTS.md`](AGENTS.md).
 
