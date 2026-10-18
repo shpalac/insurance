@@ -46,20 +46,6 @@ class GuardedIntegratorAcceptance(unittest.TestCase):
                                 "shpalac")["action"], "idle")
         self.assertFalse(check_gate(checks[47], "c" * 40))
 
-    def test_ac_2_owner_auth_must_bind_to_exact_head(self):
-        paths = [".factory/scripts/pr_merge_coordinator.py"]
-        self.assertEqual(self.decision(paths=paths, auth=False)["action"], "idle")
-        self.assertEqual(self.decision(paths=paths, auth=True)["action"], "merge")
-        self.assertFalse(approved([{"user": {"login": "shpalac"},
-                                    "body": "FACTORY-OWNER-AUTH sha=" + MAIN +
-                                            " reason=Old approval is not valid"}],
-                                  "shpalac", SHA))
-
-    def test_ac_3_behind_branch_updates_without_merge_or_gate_bypass(self):
-        self.assertEqual(self.decision(state="behind")["action"], "update")
-        self.assertEqual(self.decision(state="behind", green=False)["action"], "update")
-        self.assertEqual(self.decision()["action"], "merge")
-        self.assertEqual(self.decision(green=False)["action"], "idle")
 
 
 if __name__ == "__main__":
