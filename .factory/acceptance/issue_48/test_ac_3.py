@@ -7,6 +7,7 @@ ROOT=Path(__file__).resolve().parents[3]
 sys.path.insert(0,str(ROOT/".factory/scripts"))
 from two_issue_canary import (LiveTwoIssueCanaryMissing, STAGES, WORKFLOW,
                               verify_live_two_issue_canary, ARTIFACT)
+from issue_48_live_evidence import load_evidence, UnverifiedLiveDelivery
 
 SHA="c"*40
 RUN={"id":313,"name":WORKFLOW,"head_sha":SHA,"head_branch":"main",
@@ -42,3 +43,9 @@ class Acceptance(unittest.TestCase):
             verify_live_two_issue_canary(Fake("sha256:"+"0"*64),"d"*40)
         self.assertIn("negative-admission",STAGES)
         self.assertIn("verify-independent-evidence",STAGES)
+
+    def test_ac_3_missing_malformed_and_nonobject_evidence_is_rejected(self):
+        for raw in ("", "{", "[]", "null", '"string"'):
+            with self.subTest(raw=raw):
+                with self.assertRaises(UnverifiedLiveDelivery):
+                    load_evidence(None,raw)

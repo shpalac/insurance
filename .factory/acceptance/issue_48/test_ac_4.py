@@ -7,6 +7,7 @@ ROOT=Path(__file__).resolve().parents[3]
 sys.path.insert(0,str(ROOT/".factory/scripts"))
 from two_issue_canary import (LiveTwoIssueCanaryMissing, STAGES, WORKFLOW,
                               ARTIFACT, verify_live_two_issue_canary)
+from post_merge_closure import blocked_message
 
 SHA="d"*40
 RUN={"id":404,"name":WORKFLOW,"head_sha":SHA,"head_branch":"main",
@@ -44,3 +45,17 @@ class Acceptance(unittest.TestCase):
             verify_live_two_issue_canary(Fake(duplicates=True),SHA)
         self.assertLess(STAGES.index("real-first-issue"),
                         STAGES.index("real-second-issue"))
+
+    def test_ac_4_successful_canary_triggers_audited_recheck_and_lists_unproven_criteria(self):
+        closure=(ROOT/".github/workflows/factory-verified-closure.yml").read_text()
+        self.assertIn("Factory two-issue autonomous delivery canary",closure)
+        self.assertIn("github.event.workflow_run.event == 'workflow_dispatch'",closure)
+        message=blocked_message({
+            "reason":"acceptance_incomplete_or_untrusted_target",
+            "missing_criteria":[],
+            "unproven_criteria":["AC-1","AC-2","AC-3","AC-4"],
+            "evidence_blocker":"live_two_issue_canary_not_verified",
+        },SHA)
+        for criterion in ("AC-1","AC-2","AC-3","AC-4"):
+            self.assertIn(criterion,message)
+        self.assertIn("live_two_issue_canary_not_verified",message)

@@ -1,6 +1,11 @@
 name: Factory two-issue autonomous delivery canary
 on:
   workflow_dispatch:
+    inputs:
+      evidence_json:
+        description: "JSON manifest containing independently verifiable real delivery and fault-run identifiers and artifact digests"
+        required: true
+        type: string
 permissions:
   contents: read
   actions: read
@@ -24,7 +29,8 @@ jobs:
       - name: Authenticate first real autonomous Issue and closure
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 .factory/scripts/issue_48_live_evidence.py --phase first --evidence .factory/live-evidence/issue_48.json
+          FACTORY_LIVE_EVIDENCE_JSON: ${{ inputs.evidence_json }}
+        run: python3 .factory/scripts/issue_48_live_evidence.py --phase first
 
   recovery:
     name: fault-recovery
@@ -38,7 +44,8 @@ jobs:
       - name: Verify real injected repair, interruption and conflict evidence
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 .factory/scripts/issue_48_live_evidence.py --phase recovery --evidence .factory/live-evidence/issue_48.json
+          FACTORY_LIVE_EVIDENCE_JSON: ${{ inputs.evidence_json }}
+        run: python3 .factory/scripts/issue_48_live_evidence.py --phase recovery
 
   negative:
     name: negative-admission
@@ -52,7 +59,8 @@ jobs:
       - name: Verify real negative identity, check, prompt and SHA evidence
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 .factory/scripts/issue_48_live_evidence.py --phase negative --evidence .factory/live-evidence/issue_48.json
+          FACTORY_LIVE_EVIDENCE_JSON: ${{ inputs.evidence_json }}
+        run: python3 .factory/scripts/issue_48_live_evidence.py --phase negative
 
   second:
     name: real-second-issue
@@ -67,7 +75,8 @@ jobs:
       - name: Verify controller advances to a second real closed Issue
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 .factory/scripts/issue_48_live_evidence.py --phase second --evidence .factory/live-evidence/issue_48.json
+          FACTORY_LIVE_EVIDENCE_JSON: ${{ inputs.evidence_json }}
+        run: python3 .factory/scripts/issue_48_live_evidence.py --phase second
 
   attestation:
     name: verify-independent-evidence
@@ -82,8 +91,9 @@ jobs:
       - name: Independently check all real GitHub runs and artifact digests
         env:
           GH_TOKEN: ${{ github.token }}
+          FACTORY_LIVE_EVIDENCE_JSON: ${{ inputs.evidence_json }}
         run: |
-          python3 .factory/scripts/issue_48_live_evidence.py --phase all --evidence .factory/live-evidence/issue_48.json > factory-two-issue-live-evidence.json
+          python3 .factory/scripts/issue_48_live_evidence.py --phase all > factory-two-issue-live-evidence.json
       - name: Retain independently verified live evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

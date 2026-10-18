@@ -6,6 +6,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[3]
 sys.path.insert(0,str(ROOT/".factory/scripts"))
 from two_issue_canary import LiveTwoIssueCanaryMissing, verify_live_two_issue_canary
+from issue_48_live_evidence import load_evidence
 
 SHA="a"*40
 
@@ -33,3 +34,12 @@ class Acceptance(unittest.TestCase):
         self.assertIn('item["two_issue_canary"] = verify_live_two_issue_canary(api, sha)',closure)
         self.assertIn('item.get("two_issue_canary") != verify_live_two_issue_canary(api, sha)',closure)
         self.assertTrue(SHA and len(SHA)==40)
+
+    def test_ac_1_live_evidence_can_be_supplied_without_a_checked_in_file(self):
+        workflow=(ROOT/".github/workflows/factory-two-issue-canary.yml").read_text()
+        self.assertIn("evidence_json:",workflow)
+        self.assertIn("required: true",workflow)
+        self.assertEqual(workflow.count("FACTORY_LIVE_EVIDENCE_JSON"),5)
+        supplied='{"schema_version":1,"repository":"shpalac/insurance","mode":"live"}'
+        self.assertEqual(load_evidence(None,supplied),{
+            "schema_version":1,"repository":"shpalac/insurance","mode":"live"})

@@ -36,3 +36,17 @@ class Acceptance(unittest.TestCase):
         with self.assertRaises(AssertionError):
             verify_live_two_issue_canary(Fake(faults_green=True),SHA)
         self.assertEqual(len(STAGES),5)
+
+    def test_ac_2_all_recovery_and_negative_stages_use_the_same_evidence_input(self):
+        script=(ROOT/".factory/scripts/issue_48_live_evidence.py").read_text()
+        workflow=(ROOT/".github/workflows/factory-two-issue-canary.yml").read_text()
+        for case in ("injected_ci_failure","worker_interruption","expired_lease",
+                     "simultaneous_claim","merge_conflict"):
+            self.assertIn(case,script)
+        for case in ("missing_required_check","unapproved_identity","protected_path",
+                     "malicious_issue_prompt","stale_sha"):
+            self.assertIn(case,script)
+        for phase in ("first","recovery","negative","second","all"):
+            self.assertIn("--phase "+phase,workflow)
+        self.assertNotIn(".factory/live-evidence/issue_48.json",workflow)
+        self.assertEqual(workflow.count("FACTORY_LIVE_EVIDENCE_JSON"),5)
