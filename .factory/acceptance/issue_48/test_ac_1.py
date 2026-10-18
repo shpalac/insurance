@@ -8,7 +8,7 @@ sys.path.insert(0,str(ROOT/".factory/scripts"))
 sys.path.insert(0,str(ROOT/".factory/tests"))
 from two_issue_canary import LiveTwoIssueCanaryMissing, verify_live_two_issue_canary
 from issue_48_live_evidence import load_evidence, verify_delivery, UnverifiedLiveDelivery
-from live_evidence_fixtures import EvidenceAPI, MAIN_SHA, REPO, make_evidence
+from issue_48_live_evidence_fixtures import EvidenceAPI, MAIN_SHA, REPO, make_evidence
 
 SHA="a"*40
 
