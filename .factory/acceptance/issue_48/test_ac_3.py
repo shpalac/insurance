@@ -9,7 +9,7 @@ sys.path.insert(0,str(ROOT/".factory/tests"))
 from two_issue_canary import (LiveTwoIssueCanaryMissing, STAGES, WORKFLOW,
                               verify_live_two_issue_canary, ARTIFACT)
 from issue_48_live_evidence import load_evidence, UnverifiedLiveDelivery, verify_phase
-from live_evidence_fixtures import EvidenceAPI, REPO, make_evidence
+from issue_48_live_evidence_fixtures import EvidenceAPI, REPO, make_evidence
 
 SHA="c"*40
 RUN={"id":313,"name":WORKFLOW,"head_sha":SHA,"head_branch":"main",
