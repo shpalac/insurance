@@ -1,0 +1,93 @@
+name: Factory two-issue autonomous delivery canary
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+  checks: read
+  issues: read
+  pull-requests: read
+concurrency:
+  group: insurance-factory-two-issue-live-canary
+  cancel-in-progress: false
+
+jobs:
+  first:
+    name: real-first-issue
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Authenticate first real autonomous Issue and closure
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .factory/scripts/issue_48_live_evidence.py --phase first --evidence .factory/live-evidence/issue_48.json
+
+  recovery:
+    name: fault-recovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Verify real injected repair, interruption and conflict evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .factory/scripts/issue_48_live_evidence.py --phase recovery --evidence .factory/live-evidence/issue_48.json
+
+  negative:
+    name: negative-admission
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Verify real negative identity, check, prompt and SHA evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .factory/scripts/issue_48_live_evidence.py --phase negative --evidence .factory/live-evidence/issue_48.json
+
+  second:
+    name: real-second-issue
+    needs: [first, recovery, negative]
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Verify controller advances to a second real closed Issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .factory/scripts/issue_48_live_evidence.py --phase second --evidence .factory/live-evidence/issue_48.json
+
+  attestation:
+    name: verify-independent-evidence
+    needs: [first, recovery, negative, second]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Independently check all real GitHub runs and artifact digests
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 .factory/scripts/issue_48_live_evidence.py --phase all --evidence .factory/live-evidence/issue_48.json > factory-two-issue-live-evidence.json
+      - name: Retain independently verified live evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: factory-two-issue-live-evidence
+          path: factory-two-issue-live-evidence.json
+          if-no-files-found: error
+          retention-days: 30

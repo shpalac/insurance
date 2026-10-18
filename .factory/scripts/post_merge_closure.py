@@ -25,6 +25,7 @@ from acceptance_discovery import DiscoveryError, available_criteria
 from run_acceptance_manifest import AcceptanceError, load_targets, run_criteria
 from cross_os_proof import CrossOSProofError, verified_hosted_rows
 from lease_canary_proof import HostedLeaseCanaryMissing, verify_live_lease_canary
+from two_issue_canary import LiveTwoIssueCanaryMissing, verify_live_two_issue_canary
 from validate_issue_manifest import extract_manifest, validate_body
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -264,6 +265,8 @@ def prepare(api: GitHub, sha: str, run_id: int, *, run=run_criteria):
                         if api.get("/issues/43").get("state") != "closed":
                             raise HostedLeaseCanaryMissing("Identity dependency #43 is open")
                         item["hosted_canary"] = verify_live_lease_canary(api, sha)
+                    if number == 48:
+                        item["two_issue_canary"] = verify_live_two_issue_canary(api, sha)
                     audit = closure_progress(
                         criteria_ids=item["criteria"], evidence=evidence, main_sha=sha
                     )
@@ -393,6 +396,9 @@ def apply(api: GitHub, sha: str, plan: dict):
                 continue
             if item.get("hosted_canary") != verify_live_lease_canary(api, sha):
                 raise ReconcileError("Hosted canary proof differs from immutable main")
+        if number == 48:
+            if item.get("two_issue_canary") != verify_live_two_issue_canary(api, sha):
+                raise ReconcileError("Live two-issue proof differs from immutable main")
         decision = closure_progress(criteria_ids=criteria, evidence=evidence, main_sha=sha)
         if not decision["should_close"]:
             blocked.append({"issue": number, "reason": "incomplete_criteria"})
