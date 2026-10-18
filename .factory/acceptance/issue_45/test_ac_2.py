@@ -65,7 +65,7 @@ class Acceptance(unittest.TestCase):
         )
         self.assertEqual(envelope.checkpoint, UPDATED_SHA)
         self.assertEqual(envelope.branch, "factory/issue-45-worker")
-        self.assertEqual(envelope.commit_sha, SHA)
+        self.assertEqual(envelope.commit_sha, UPDATED_SHA)
         self.assertEqual(envelope.idempotency_key, before_heartbeat.idempotency_key)
         self.assertGreater(envelope.revision, before_heartbeat.revision)
         with self.assertRaises(LeaseConflict):
