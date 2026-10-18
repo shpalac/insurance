@@ -181,18 +181,35 @@ def verify_phase(api,evidence,*,repo,phase):
             "recovery_cases":len(RECOVERY),"negative_cases":len(NEGATIVE)}
 
 
+def load_evidence(path: Path | None, raw_json: str | None) -> dict:
+    """Load an operator-supplied evidence manifest without inventing proof."""
+    if path is not None:
+        raw = path.read_text(encoding="utf-8")
+    elif isinstance(raw_json, str) and raw_json.strip():
+        raw = raw_json
+    else:
+        raise UnverifiedLiveDelivery("Live evidence JSON input is required")
+    try:
+        evidence = json.loads(raw)
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise UnverifiedLiveDelivery("Live evidence JSON is malformed") from exc
+    if not isinstance(evidence, dict):
+        raise UnverifiedLiveDelivery("Live evidence must be a JSON object")
+    return evidence
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--phase",choices=("first","recovery","negative","second","all"),
                         required=True)
-    parser.add_argument("--evidence",type=Path,required=True)
+    parser.add_argument("--evidence",type=Path)
     args=parser.parse_args()
     repo=os.environ.get("GITHUB_REPOSITORY","")
     token=os.environ.get("GH_TOKEN","")
     if not REPO.fullmatch(repo) or not token:
         raise SystemExit("BLOCKED: authenticated read-only GitHub context missing")
     try:
-        proof=json.loads(args.evidence.read_text(encoding="utf-8"))
+        proof=load_evidence(args.evidence,os.environ.get("FACTORY_LIVE_EVIDENCE_JSON",""))
         class ReadAPI:
             def get(self,path):
                 if not path.startswith("/") or "://" in path:
