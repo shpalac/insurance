@@ -58,8 +58,8 @@ closed**, not silently skips), runs the probe, and saves its JSON artifact.
 
 The upstream dependency `ethnum 1.5.2` fails to compile with the hosted
 Rust 1.99 compiler (E0512 due to a stdlib type layout change). The isolated
-research job pins Rust **1.96.0** before building the unchanged upstream
-commit; this is not a test bypass. The explicit Rust version is part of the
+research job pins Rust **1.96.0** and Polars **1.x below 1.6** before building the unchanged upstream
+commit. This follows the upstream Rust extra's declared compatibility range and avoids the `compat_level` type mismatch seen with latest Polars; it is not a test bypass. The explicit Rust version is part of the
 reproducibility contract and is asserted by acceptance tests.
 
 The usual insurance CI and scanner are unchanged. Local execution requires
