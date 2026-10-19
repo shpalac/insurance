@@ -15,6 +15,8 @@ class Acceptance(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn("runs-on: ubuntu-latest", workflow)
+        self.assertIn("rustup toolchain install 1.96.0 --profile minimal", workflow)
+        self.assertIn("rustup default 1.96.0", workflow)
         self.assertIn("LAMBDACLASS_SMOKE_REQUIRED:", workflow)
         self.assertIn('"1"', workflow)
         self.assertIn(
