@@ -41,15 +41,15 @@ class FakeGitHub:
     def get(self, endpoint):
         if endpoint == "/git/ref/heads/main":
             return {"object": {"sha": self.head}}
-        if endpoint.startswith("/commits/") and endpoint.endswith("/check-runs?per_page=100"):
-            checks = [{
+        if endpoint.startswith("/commits/") and "/check-runs?check_name=" in endpoint:
+            name = endpoint.split("check_name=", 1)[1].split("&", 1)[0]
+            check = {
                 "name": name, "head_sha": SHA, "status": "completed",
                 "conclusion": "success", "app": {"slug": "github-actions"},
-            } for name in ("unit-tests", "factory-bootstrap-gate",
-                           "factory-gate-preflight")]
-            if not self.good_checks:
-                checks[-1]["conclusion"] = "failure"
-            return {"total_count": len(checks), "check_runs": checks}
+            }
+            if not self.good_checks and name == "factory-gate-preflight":
+                check["conclusion"] = "failure"
+            return {"total_count": 1, "check_runs": [check]}
         if endpoint.startswith("/actions/runs?"):
             return {"workflow_runs": []}
         if endpoint.startswith("/compare/"):
