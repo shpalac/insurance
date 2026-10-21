@@ -14,7 +14,8 @@ orchestration:
   enabled: false
   agent_backend: "external"
   agent_providers: []
-  approved_agent_logins: []
+  approved_agent_logins:
+    - shpalac
   lease_backend: "github_ref_cas"
   max_concurrent_agents: 2
   external_llm_backend_required: true
