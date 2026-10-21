@@ -146,11 +146,16 @@ def current_main(api: GitHub) -> str:
 def require_main_checks(api: GitHub, sha: str):
     if current_main(api) != sha:
         raise ReconcileError("Head changed; retry on the new main SHA")
-    result = api.get(f"/commits/{sha}/check-runs?per_page=100")
-    checks = result.get("check_runs")
-    if not isinstance(checks, list) or result.get("total_count", 0) > 100:
-        raise ReconcileError("Missing or truncated check-run evidence")
     for name in REQUIRED_JOBS:
+        # Query each required context independently. Aggregate history on a
+        # long-lived main SHA may exceed GitHub's 100-check response limit.
+        result = api.get(
+            f"/commits/{sha}/check-runs?check_name={name}&filter=latest&per_page=100"
+        )
+        checks = result.get("check_runs") if isinstance(result, dict) else None
+        if (not isinstance(checks, list)
+                or result.get("total_count", 0) > len(checks)):
+            raise ReconcileError(f"Missing or truncated check-run evidence: {name}")
         valid = [check for check in checks if
                  check.get("name") == name and check.get("head_sha") == sha
                  and check.get("app", {}).get("slug") == "github-actions"
