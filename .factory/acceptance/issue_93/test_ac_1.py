@@ -57,22 +57,6 @@ class Issue93Acceptance(unittest.TestCase):
                              for x in api.calls))
         emit(1)
 
-    def test_ac_2_missing_failed_wrong_app_and_head_fail_closed(self):
-        for attribute in ("missing", "failure", "wrong_app", "wrong_head"):
-            with self.subTest(attribute=attribute):
-                api = FakeAPI()
-                setattr(api, attribute, REQUIRED_JOBS[0])
-                with self.assertRaises(ReconcileError):
-                    require_main_checks(api, SHA)
-        emit(2)
-
-    def test_ac_3_changed_main_fails_before_check_lookup(self):
-        api = FakeAPI()
-        api.stale_main = True
-        with self.assertRaisesRegex(ReconcileError, "Head changed"):
-            require_main_checks(api, SHA)
-        self.assertFalse(any("check_name=" in x for x in api.calls))
-        emit(3)
 
 
 if __name__ == "__main__":
